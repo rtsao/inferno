@@ -10,6 +10,7 @@
     "url": "https://github.com/trueadm/inferno/issues"
   },
   "devDependencies": {
+    "awesome-typescript-loader": "^0.17.0",
     "babel-cli": "^6.8.0",
     "babel-core": "^6.8.0",
     "babel-eslint": "^6.0.4",
@@ -73,6 +74,7 @@
     "rollup-stream": "^1.5.0",
     "sinon": "^1.17.4",
     "sinon-chai": "^2.8.0",
+    "ts-loader": "^0.8.2",
     "webpack": "^2.1.0-beta.6",
     "webpack-dev-server": "^1.14.1"
   },
