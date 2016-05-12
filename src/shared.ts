@@ -75,7 +75,7 @@ export function isInvalid(obj: any): boolean {
 	return isUndef(obj) || isNull(obj) || isTrue(obj) || isFalse(obj);
 }
 
-export function isArray(obj: any): boolean {
+export function isArray(obj: any): obj is Array<Input> {
 	return Array.isArray(obj);
 }
 
