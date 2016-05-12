@@ -1,15 +1,15 @@
-import { isUndef } from '../shared';
+import { isUndef, VTextNode, VComponent, VTemplate } from '../shared';
 
 // When we mount or patch to an invalid input, instead of doing nothing, we insert a "placeholder"
 // which is an empty textNode. To track these placeholders we use a map, where the key is the DOM node.
 export const placeholders: Map<HTMLElement, Comment> = new Map();
 
-export function isVTextNode(obj: any): boolean {
+export function isVTextNode(obj: any): obj is VTextNode {
 	return !isUndef(obj._t);
 }
 
-export function isVComponent(obj: any): boolean {
-	return !isUndef(obj._component);
+export function isVTemplate(obj: any): obj is VTemplate {
+	return !isUndef(obj.bp);
 }
 
 export function createPlaceholder(parentDomNode: HTMLElement): Comment {

@@ -1,23 +1,34 @@
-import { isUndef, Input, isInvalid, isStringOrNumber, VTextNode, VElement } from '../shared';
-import { isVTextNode, isVComponent, createPlaceholder, createTextNode, appendChild } from './shared';
+import { isUndef, Input, isInvalid, isNull, isArray, isStringOrNumber, VTextNode, VComponent, VElement, isVElement, isVComponent } from '../shared';
+import { isVTextNode, isVTemplate, createPlaceholder, createTextNode, appendChild } from './shared';
 import { Lifecyle } from './rendering';
 
-export function mount(input: Input, parentDomNode: HTMLElement, lifecycle: Lifecyle, instance: Function, namespace: string, isKeyed: boolean): HTMLElement | Text | Comment {
-	let domNode: HTMLElement | Text | Comment;
-
+export function mount(input: Input, parentDomNode: HTMLElement, lifecycle: Lifecyle, instance: Function, namespace: string, isKeyed: boolean): HTMLElement | Text | Comment | DocumentFragment {
 	if (isInvalid(input)) {
-		domNode = createPlaceholder(parentDomNode);
+		return createPlaceholder(parentDomNode);
 	} else if (isStringOrNumber(input)) {
 		throw new Error(`Inferno Error: invalid mount input of "${ typeof input }". Ensure the String or Number is wrapped in a VElement, VComponent, VTemplate or Array.`);
 	} else if (isVTextNode(input)) {
-		domNode = mountVTextNode(input, parentDomNode);
+		return mountVTextNode(input, parentDomNode);
 	} else if (isVComponent(input)) {
-		domNode = mountVComponent(input, parentDomNode, lifecycle, instance, namespace);
+		return mountVComponent(input, parentDomNode, lifecycle, instance, namespace);
+	} else if (isVElement(input)) {
+		return mountVElement(input, parentDomNode, lifecycle, instance, namespace);
+	} else if (isVTemplate(input)) {
+		return mountVTemplate(input, parentDomNode, lifecycle, instance);
+	} else if (isArray(input)) {
+		let domNode: HTMLElement | DocumentFragment = parentDomNode;
+		
+		if (isNull(parentDomNode)) {
+			domNode = document.createDocumentFragment();
+		}
+		mountArray(input, domNode, lifecycle, instance, namespace, isKeyed);
+		return domNode;
+	} else {
+		throw new Error('Inferno Error: failed to "mount", invalid object was detected. Valid "mount" types are Array, Promise, Function, VTextNode, VElement, VComponent and VTemplate.');
 	}
-	return domNode;
 }
 
-function mountVTextNode(vTextNode: VTextNode, parentDomNode): any {
+function mountVTextNode(vTextNode: VTextNode, parentDomNode: HTMLElement): any {
 	const domTextNode = createTextNode(vTextNode._text);
 
 	vTextNode._dom = domTextNode;
@@ -27,6 +38,22 @@ function mountVTextNode(vTextNode: VTextNode, parentDomNode): any {
 	return domTextNode;
 }
 
-function mountVComponent(vComponent, parentDomNodem, lifecycle, instance, namespace): any {
+function mountVComponent(vComponent: VComponent, parentDomNode: HTMLElement, lifecycle, instance, namespace): any {
 	// TODO
+}
+
+function mountVElement(vComponent: VComponent, parentDomNode: HTMLElement, lifecycle, instance, namespace): any {
+	// TODO
+}
+
+function mountVTemplate(vComponent: VComponent, parentDomNode: HTMLElement, lifecycle, instance): any {
+	// TODO
+}
+
+function mountArray(array: Array<Input>, domNode: HTMLElement, lifecycle, instance, namespace, isKeyed) {
+	for (let i = 0; i < array.length; i++) {
+		let arrayItem: Input = array[i];
+
+		mount(arrayItem, domNode, lifecycle, instance, namespace, isKeyed);
+	}
 }
