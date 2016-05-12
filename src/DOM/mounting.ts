@@ -2,7 +2,7 @@ import { isUndef, Input, isInvalid, isNull, isArray, isStringOrNumber, VTextNode
 import { isVTextNode, isVTemplate, createPlaceholder, createTextNode, appendChild } from './shared';
 import { Lifecyle } from './rendering';
 
-export function mount(input: Input, parentDomNode: HTMLElement, lifecycle: Lifecyle, instance: Function, namespace: string, isKeyed: boolean): HTMLElement | Text | Comment | DocumentFragment {
+export function mount(input: Input, parentDomNode: HTMLElement | DocumentFragment, lifecycle: Lifecyle, instance: Function, namespace: string, isKeyed: boolean): HTMLElement | Text | Comment | DocumentFragment {
 	if (isInvalid(input)) {
 		return createPlaceholder(parentDomNode);
 	} else if (isStringOrNumber(input)) {
@@ -28,7 +28,7 @@ export function mount(input: Input, parentDomNode: HTMLElement, lifecycle: Lifec
 	}
 }
 
-function mountVTextNode(vTextNode: VTextNode, parentDomNode: HTMLElement): any {
+function mountVTextNode(vTextNode: VTextNode, parentDomNode: HTMLElement | DocumentFragment): any {
 	const domTextNode = createTextNode(vTextNode._text);
 
 	vTextNode._dom = domTextNode;
@@ -38,15 +38,15 @@ function mountVTextNode(vTextNode: VTextNode, parentDomNode: HTMLElement): any {
 	return domTextNode;
 }
 
-function mountVComponent(vComponent: VComponent, parentDomNode: HTMLElement, lifecycle, instance, namespace): any {
+function mountVComponent(vComponent: VComponent, parentDomNode: HTMLElement | DocumentFragment, lifecycle, instance, namespace): any {
 	// TODO
 }
 
-function mountVElement(vComponent: VComponent, parentDomNode: HTMLElement, lifecycle, instance, namespace): any {
+function mountVElement(vComponent: VComponent, parentDomNode: HTMLElement | DocumentFragment, lifecycle, instance, namespace): any {
 	// TODO
 }
 
-function mountVTemplate(vComponent: VComponent, parentDomNode: HTMLElement, lifecycle, instance): any {
+function mountVTemplate(vComponent: VComponent, parentDomNode: HTMLElement | DocumentFragment, lifecycle, instance): any {
 	// TODO
 }
 
