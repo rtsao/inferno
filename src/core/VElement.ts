@@ -1,15 +1,16 @@
-interface Input {
-	| string;
-	number;
-	VElement:?;
-}
+import { Input, VElement as VElementType } from '../shared';
 
-export default class VElement {
-	public tag : string;
-	public children : Array<Input>;
+export default class VElement implements VElementType {
+	public _tag: string;
+	public _dom: HTMLElement | Text;
+	public _children: Input = [];
 	
-	constructor(tag : string) {
-		this.tag = tag;
-		this.children.push('foo')
+	constructor(tag: string) {
+		this._tag = tag;
+		this._dom = null;
+	}
+	children(children: Input): VElement {
+		this._children = children;
+		return this;
 	}
 }

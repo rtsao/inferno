@@ -22,11 +22,14 @@ module.exports = {
 				loader: 'imports?define=>false,require=>false'
 			},
 			{
-				test: /\.tsx?$/,
+				test: /\.ts$/,
 				exclude: [
 					path.resolve('node_modules/')
 				],
-				loader: 'ts-loader'
+				loaders: [
+					'babel',
+					'ts-loader'
+				]
 			}
 		]
 	},

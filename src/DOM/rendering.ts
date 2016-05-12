@@ -1,28 +1,28 @@
 import { mount } from './mounting';
 import { patch } from './patching';
-import { isUndef } from '../utils';
+import { isUndef, Input } from '../shared';
 
 // We need to know the DOM node to get a root VTemplate, VTextNode, VComponent or VElement,
 // we can retrive them faster than using arrays with O(n) lookup
 // The key is the DOM node.
-const roots : Map<HTMLElement, Root> = new Map();
+const roots: Map<HTMLElement, Root> = new Map();
 
 class Root {
-	public input : any;
+	public input: Input;
 	
-	constructor(domNode : HTMLElement, input : any) {
+	constructor(domNode: HTMLElement, input: Input) {
 		this.input = input;
 		roots.set(domNode, this);	
 	}
 }
 
-class Lifecyle {
-	private callbacks : Array<Function>;
+export class Lifecyle {
+	private callbacks: Array<Function>;
 	
 	constructor() {
 		this.callbacks = [];    
 	}
-	callback(callback : function) {
+	callback(callback: Function) {
 		this.callbacks.push(callback);
 	}
 	trigger() {
@@ -37,9 +37,9 @@ class Lifecyle {
 	}
 }
 
-export function render(input : any, domNode : HTMLElement) {
-	const lifecycle = new Lifecyle();
-	let root = roots.get(domNode);
+export function render(input: Input, domNode: HTMLElement) {
+	const lifecycle: Lifecyle = new Lifecyle();
+	let root: Root = roots.get(domNode);
 
 	if (isUndef(root)) {
 		mount(input, domNode, lifecycle, null, null, false);

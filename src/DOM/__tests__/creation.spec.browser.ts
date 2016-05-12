@@ -1,18 +1,30 @@
 import { render } from './../rendering';
 
-alert(' ');
+const describe = window['describe'];
+const it = window['it'];
+const beforeEach = window['beforeEach'];
+const afterEach = window['afterEach'];
+const expect = window['expect'];
+
 // import { createUniversalElement } from './../../core/universal';
 
-// describe('Creation - (non-JSX)', () => {
-// 	let container;
+describe('Creation - (non-JSX)', () => {
+	let container: HTMLElement;
 
-// 	beforeEach(function () {
-// 		container = document.createElement('div');
-// 	});
+	beforeEach(function () {
+		container = document.createElement('div');
+	});
 
-// 	afterEach(function () {
-// 		container.innerHTML = '';
-// 	});
+	afterEach(function () {
+		container.innerHTML = '';
+	});
+	
+	describe('Very basic example', () => {
+		it('Should render', () => {
+			render([ 1, 2, 3 ], container);
+			expect(container.innerHTML).to.equal('123');
+		});
+	});
 
 // 	[{
 // 		description: 'should render div with span child',
@@ -321,4 +333,4 @@ alert(' ');
 		
 // 		expect(node.outerHTML).to.equal('<div data-id="3"></div>');
 // 	});
-// });
+});
