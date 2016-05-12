@@ -50,7 +50,7 @@ function mountVTemplate(vComponent: VComponent, parentDomNode: HTMLElement, life
 	// TODO
 }
 
-function mountArray(array: Array<Input>, domNode: HTMLElement, lifecycle, instance, namespace, isKeyed) {
+function mountArray(array: Array<Input>, domNode: HTMLElement | DocumentFragment, lifecycle, instance, namespace, isKeyed) {
 	for (let i = 0; i < array.length; i++) {
 		let arrayItem: Input = array[i];
 
