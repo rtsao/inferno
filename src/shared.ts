@@ -1,4 +1,4 @@
-export type Input = string | number | VElement | VTextNode | VComponent | Array<string | number | VElement | VTextNode | VComponent | Array<any>>;
+export type Input = string | number | VElement | VTextNode | VComponent | VElement | VTemplate | Array<string | number | VElement | VTextNode | VComponent | VElement | VTemplate | Array<any>>;
 
 export interface VElement {
 	_tag: string,
