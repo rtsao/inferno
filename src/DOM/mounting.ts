@@ -1,8 +1,8 @@
 import { isUndef, Input, isInvalid, isNull, isArray, isStringOrNumber, VTextNode, VComponent, VElement, isVElement, isVComponent, VTemplate, isFalse } from '../shared';
 import { isVTextNode, isVTemplate, createPlaceholder, createTextNode, appendChild, normaliseArray } from './shared';
-import { Lifecyle } from './rendering';
+import Lifecycle from './Lifecycle';
 
-export function mount(input: Input, parentDomNode: HTMLElement | DocumentFragment, lifecycle: Lifecyle, instance: Function, namespace: string, isKeyed: boolean): HTMLElement | Text | Comment | DocumentFragment {
+export function mount(input: Input, parentDomNode: HTMLElement | DocumentFragment, lifecycle: Lifecycle, instance: Object, namespace: string, isKeyed: boolean): HTMLElement | Text | Comment | DocumentFragment {
 	if (isInvalid(input)) {
 		return createPlaceholder(parentDomNode);
 	} else if (isStringOrNumber(input)) {

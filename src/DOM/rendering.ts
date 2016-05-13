@@ -1,5 +1,6 @@
 import { mount } from './mounting';
 import { patch } from './patching';
+import Lifecycle from './Lifecycle';
 import { isUndef, Input } from '../shared';
 
 // We need to know the DOM node to get a root VTemplate, VTextNode, VComponent or VElement,
@@ -16,29 +17,8 @@ class Root {
 	}
 }
 
-export class Lifecyle {
-	private callbacks: Array<Function>;
-	
-	constructor() {
-		this.callbacks = [];    
-	}
-	callback(callback: Function) {
-		this.callbacks.push(callback);
-	}
-	trigger() {
-		const callbacks = this.callbacks;
-		const length = callbacks.length;
-
-		if (length > 0) {
-			for (let i = 0; i < length; i++) {
-				callbacks[i]();
-			}
-		}
-	}
-}
-
 export function render(input: Input, domNode: HTMLElement) {
-	const lifecycle: Lifecyle = new Lifecyle();
+	const lifecycle: Lifecycle = new Lifecycle();
 	let root: Root = roots.get(domNode);
 
 	if (isUndef(root)) {
