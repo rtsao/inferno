@@ -1,29 +1,31 @@
-export type Input = string | number | VElement | VTextNode | VComponent | VTemplate | Array<string | number | VElement | VTextNode | VComponent | VTemplate | Array<any>>;
+export type VNode = VElement | VTextNode | VComponent | VTemplate | VAsyncNode;
+export type Input = string | number | VNode | Promise<any> | Array<string | number | VNode | Promise<any> | Array<any>>;
+export type HTMLNode = HTMLElement | Text | DocumentFragment;
 
 export interface VElement {
 	_tag: string,
 	_children: Input | Array<any>,
-	_dom: HTMLElement | Text,
+	_dom: HTMLNode,
 	_key: string | number,
 	_props: Object,
 	_attrs: Object,
 	_events: Object,
 	_hooks: Object,
 	_text: string | number,
-	_ref: string | number,
+	_ref: string | Function,
 	_isKeyed: boolean
 }
 
 export interface VTextNode {
-	_text: string,
-	_dom: Text,
+	_text: string | number,
+	_dom: HTMLNode,
 	_key: string | number,
 	_t: boolean
 }
 
 export interface VComponent {
 	_component: Function,
-	_dom: HTMLElement | Text,
+	_dom: HTMLNode,
 	_props: Object,
 	_hooks: Object,
 	_key: string | number
@@ -33,11 +35,19 @@ export interface VComponent {
 }
 
 export interface VTemplate {
-	_dom: HTMLElement | Text,
+	_dom: HTMLNode,
 	_key: string | number,
 	bp: Blueprint,
 	v0: Input,
 	v1: Array<Input>
+}
+
+export interface VAsyncNode {
+	_dom: HTMLNode,
+	_key: string | number,
+	_async: Promise<any>,
+	_cancel: boolean,
+	_lastInput: Input
 }
 
 export interface Blueprint {
@@ -53,6 +63,14 @@ export const isServer = typeof document === 'undefined' ? true : false;
 
 export function isVComponent(obj: any): obj is VComponent {
 	return !isUndef(obj._component);
+}
+
+export function isVAsyncNode(obj: any): obj is VAsyncNode {
+	return !isUndef(obj._async);
+}
+
+export function isVNode(obj: any): obj is VNode {
+	return !isUndef(obj._dom);
 }
 
 export function isVElement(obj: any): obj is VElement {
@@ -79,23 +97,23 @@ export function isArray(obj: any): obj is Array<Input> {
 	return Array.isArray(obj);
 }
 
-export function isPromise(obj: any): boolean {
-	return obj instanceof Promise;
+export function isPromise(obj: any): obj is Promise<any> {
+	return !isUndef(obj.then);
 }
 
-export function isObject(obj: any): boolean {
+export function isObject(obj: any): obj is Object {
 	return typeof obj === 'object';
 }
 
-export function isString(obj: any): boolean {
+export function isString(obj: any): obj is string {
 	return typeof obj === 'string';
 }
 
-export function isNumber(obj: any): boolean {
+export function isNumber(obj: any): obj is number {
 	return typeof obj === 'number';
 }
 
-export function isFunction(obj): boolean {
+export function isFunction(obj): obj is Function {
 	return typeof obj === 'function';
 }
 
@@ -107,7 +125,7 @@ export function isTrue(obj: any): boolean {
 	return obj === true;
 }
 
-export function isStringOrNumber(obj: any): boolean {
+export function isStringOrNumber(obj: any): obj is string | number {
 	return isString(obj) || isNumber(obj);
 }
 

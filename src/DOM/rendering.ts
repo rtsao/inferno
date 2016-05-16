@@ -1,7 +1,10 @@
 import { mount } from './mounting';
 import { patch } from './patching';
 import Lifecycle from './Lifecycle';
-import { isUndef, Input } from '../shared';
+import { isUndef, Input, isStringOrNumber, isVNode, isPromise, isInvalid } from '../shared';
+import { normaliseInput } from './shared';
+import VTextNode from './VTextNode';
+import VAsyncNode from '../core/VAsyncNode';
 
 // We need to know the DOM node to get a root VTemplate, VTextNode, VComponent or VElement,
 // we can retrive them faster than using arrays with O(n) lookup
@@ -21,11 +24,14 @@ export function render(input: Input, domNode: HTMLElement) {
 	const lifecycle: Lifecycle = new Lifecycle();
 	let root: Root = roots.get(domNode);
 
+	if (!isInvalid(input) && !isVNode(input)) {
+		input = normaliseInput(input);
+	}	
 	if (isUndef(root)) {
 		mount(input, domNode, lifecycle, null, null, false);
 		root = new Root(domNode, input);
 	} else {
-		patch(root.input, input, domNode, lifecycle, null, null, false);
+		patch(root.input, input, domNode, lifecycle, null, null, false, true);
 		if (input === null) {
 			roots.delete(domNode);
 			root = null;

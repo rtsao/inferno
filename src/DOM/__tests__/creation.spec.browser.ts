@@ -16,14 +16,8 @@ describe('Creation - (non-JSX)', () => {
 	});
 
 	afterEach(function () {
+		render(null, container);
 		container.innerHTML = '';
-	});
-	
-	describe('Very basic example', () => {
-		it('Should render', () => {
-			render([ 1, 2, 3 ], container);
-			expect(container.innerHTML).to.equal('123');
-		});
 	});
 
 // 	[{
@@ -314,23 +308,4 @@ describe('Creation - (non-JSX)', () => {
 // 		});
 // 	});
 // });
-
-// describe('universal creation', () => {
-// 	let container;
-
-// 	beforeEach(function () {
-// 		container = document.createElement('div');
-// 	});
-
-// 	afterEach(function () {
-// 		container.innerHTML = '';
-// 	});
-
-// 	it('Should create node with attrs', () => {
-// 		var node = createUniversalElement('div', {
-// 			'data-id': '3'
-// 		});
-		
-// 		expect(node.outerHTML).to.equal('<div data-id="3"></div>');
-// 	});
 });
