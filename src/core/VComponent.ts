@@ -1,8 +1,8 @@
-import { Input, VComponent as VComponentType, isStatefulComponent, HTMLNode } from '../shared';
+import { Input, VComponent as VComponentType, isStatefulComponent } from '../shared';
 
 export default class VComponent implements VComponentType {
 	public _component: Function;
-	public _dom: HTMLNode = null;
+	public _dom: HTMLElement | SVGAElement | DocumentFragment = null;
 	public _props: Object = null;
 	public _hooks: Object = null;
 	public _instance: Input = null;

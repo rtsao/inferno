@@ -1,7 +1,7 @@
-import { HTMLNode, VAsyncNode as VAsyncNodeType, Input } from '../shared';
+import { VAsyncNode as VAsyncNodeType, Input } from '../shared';
 
 export default class VAsyncNode implements VAsyncNodeType {
-	public _dom: HTMLNode = null;
+	public _dom: HTMLElement | SVGAElement | DocumentFragment | Text = null;
 	public _async: Promise<any>;
 	public _key: string | number = null;
 	public _cancel: boolean = false;

@@ -1,16 +1,19 @@
-export type VNode = VElement | VTextNode | VComponent | VTemplate | VAsyncNode;
+export type VNode = VElement | VTextNode | VComponent | VTemplate | VAsyncNode | VEmptyNode;
 export type Input = string | number | VNode | Promise<any> | Array<string | number | VNode | Promise<any> | Array<any>>;
-export type HTMLNode = HTMLElement | Text | DocumentFragment;
+
+export interface StatefulComponent {
+	refs: Object
+}
 
 export interface VElement {
 	_tag: string,
 	_children: Input | Array<any>,
-	_dom: HTMLNode,
+	_dom: HTMLElement | SVGAElement | DocumentFragment,
 	_key: string | number,
 	_props: Object,
 	_attrs: Object,
 	_events: Object,
-	_hooks: Object,
+	_hooks: Hooks,
 	_text: string | number,
 	_ref: string | Function,
 	_isKeyed: boolean
@@ -18,14 +21,14 @@ export interface VElement {
 
 export interface VTextNode {
 	_text: string | number,
-	_dom: HTMLNode,
+	_dom: Text,
 	_key: string | number,
-	_t: boolean
+	_t
 }
 
 export interface VComponent {
 	_component: Function,
-	_dom: HTMLNode,
+	_dom: HTMLElement | SVGAElement | DocumentFragment,
 	_props: Object,
 	_hooks: Object,
 	_key: string | number
@@ -35,7 +38,7 @@ export interface VComponent {
 }
 
 export interface VTemplate {
-	_dom: HTMLNode,
+	_dom: HTMLElement | SVGAElement | DocumentFragment,
 	_key: string | number,
 	bp: Blueprint,
 	v0: Input,
@@ -43,11 +46,17 @@ export interface VTemplate {
 }
 
 export interface VAsyncNode {
-	_dom: HTMLNode,
+	_dom: HTMLElement | SVGAElement | DocumentFragment | Text,
 	_key: string | number,
 	_async: Promise<any>,
 	_cancel: boolean,
 	_lastInput: Input
+}
+
+export interface VEmptyNode {
+	_dom: Text,
+	_key: string | number,
+	_e
 }
 
 export interface Blueprint {
@@ -59,7 +68,22 @@ export interface Blueprint {
 	schemaFunc: Function
 }
 
+export interface Hooks {
+	created: Function,
+	attached: Function,
+	willDetach: Function,
+	detached: Function
+}
+
+export interface Root {
+	input: Input
+}
+
 export const isServer = typeof document === 'undefined' ? true : false;
+
+export function isVEmptyNode(obj: any): obj is VEmptyNode {
+	return !isUndef(obj._e);
+}
 
 export function isVComponent(obj: any): obj is VComponent {
 	return !isUndef(obj._component);
@@ -77,6 +101,10 @@ export function isVElement(obj: any): obj is VElement {
 	return !isUndef(obj._tag);
 }
 
+export function isVTemplate(obj: any): obj is VTemplate {
+	return !isUndef(obj.bp);
+}
+
 export function isUndef(obj: any): boolean {
 	return obj === undefined;
 }
@@ -90,10 +118,10 @@ export function isNull(obj: any): boolean {
 }
 
 export function isInvalid(obj: any): boolean {
-	return isUndef(obj) || isNull(obj) || isTrue(obj) || isFalse(obj);
+	return isUndef(obj) || isNull(obj) || isFalse(obj);
 }
 
-export function isArray(obj: any): obj is Array<Input> {
+export function isArray(obj: any): obj is Array<any> {
 	return Array.isArray(obj);
 }
 

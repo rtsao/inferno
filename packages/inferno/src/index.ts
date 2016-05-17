@@ -1,7 +1,8 @@
-import { async, component, element } from '../../../src/core/index';
+import { async, component, element, empty } from '../../../src/core/index';
 
 export default {
 	element,
 	component,
-	async
+	async,
+	empty
 };

@@ -1,28 +1,68 @@
-import { HTMLNode, isUndef, Input, isInvalid, isNull, isArray, isStringOrNumber, VTextNode, VComponent, VElement, isVElement, isVComponent, VTemplate, isFalse, isTrue, isVAsyncNode, isPromise, isVNode } from '../shared';
-import { replaceInputWithPlaceholder, replacePlaceholderWithInput, normaliseArray, normaliseInput, getDomNodeFromInput, isVTextNode, setText, replaceVTextNodeWithInput, replaceArrayWithInput, replaceInputWithArray, replaceVAsyncNodeWithInput, replaceChild } from './shared';
+import {  
+	isUndef, 
+	Input, 
+	isInvalid, 
+	isNull, 
+	isArray, 
+	isStringOrNumber, 
+	VTextNode, 
+	VComponent, 
+	VElement, 
+	isVElement, 
+	isVComponent, 
+	VTemplate, 
+	isFalse, 
+	isTrue, 
+	isVAsyncNode, 
+	isPromise, 
+	isVNode, 
+	isVEmptyNode, 
+	VEmptyNode,
+	VAsyncNode,
+	isString,
+	StatefulComponent,
+	isVTemplate
+} from '../shared';
+import { 
+	replaceInputWithPlaceholder, 
+	normaliseArray, 
+	normaliseInput, 
+	getDomNodeFromInput, 
+	isVTextNode, 
+	setText, 
+	replaceVTextNodeWithInput, 
+	replaceArrayWithInput, 
+	replaceInputWithArray, 
+	replaceVAsyncNodeWithInput, 
+	replaceChild,
+	setTextContent
+} from './shared';
 import Lifecycle from './Lifecycle';
-import VAsyncNode from '../core/VAsyncNode';
 import { unmount } from './unmounting';
-import { mount } from './mounting';
+import { mount, mountVEmptyNode } from './mounting';
 
 const badInput = 'Inferno Error: bad input(s) passed to "patch". Please ensure only valid objects are used in your render.';
 
-export function patch(lastInput: Input, nextInput: Input, parentDomNode: HTMLElement, lifecycle: Lifecycle, instance: Object, namespace: string, isKeyed: boolean, isRoot: boolean): void {
-	if (isInvalid(nextInput)) {
-		if (!isInvalid(lastInput)) {
+export function patch(lastInput: Input, nextInput: Input, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, instance: StatefulComponent, namespace: string, isKeyed: boolean, isRoot: boolean): void {
+	if (isVEmptyNode(nextInput)) {
+		if (isVEmptyNode(lastInput)) {
+			patchVEmptyNode(lastInput, nextInput);	
+		} else {
 			if (isTrue(isRoot)) {
 				unmount(lastInput, parentDomNode, lifecycle, isRoot, false);
+				lifecycle.deleteRoot();
 			} else {
-				replaceInputWithPlaceholder(lastInput, parentDomNode, lifecycle);	
+				mountVEmptyNode(nextInput, null);
+				// replaceInputWithPlaceholder(lastInput, parentDomNode, lifecycle);	
+				debugger;
 			}
 		}
-	} else if (isInvalid(lastInput)) {
-		if (!isInvalid(nextInput)) {
-			if (isTrue(isRoot)) {
-				mount(nextInput, parentDomNode, lifecycle, instance, namespace, false);
-			} else {
-				replacePlaceholderWithInput(nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed);	
-			}
+	} else if (isVEmptyNode(lastInput)) {
+		if (isTrue(isRoot)) {
+			mount(nextInput, parentDomNode, lifecycle, instance, namespace, false);
+		} else {
+			// replacePlaceholderWithInput(nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed);	
+			debugger;
 		}
 	} else if (isArray(lastInput)) {
 		if (isArray(nextInput)) {
@@ -41,7 +81,23 @@ export function patch(lastInput: Input, nextInput: Input, parentDomNode: HTMLEle
 			patchVAsyncNode(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
 		} else {
 			patchInputWithPromiseInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
-		}	
+		}
+	} else if (isVTemplate(nextInput)) {
+		debugger;
+	} else if (isVTemplate(lastInput)) {
+		debugger;
+	} else if (isVElement(nextInput)) {
+		if (isVElement(lastInput)) {
+			patchVElement(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
+		} else {
+			debugger;	
+		}
+	} else if (isVElement(lastInput)) {
+		debugger;
+	} else if (isVComponent(nextInput)) {
+		debugger;
+	} else if (isVComponent(lastInput)) {
+		debugger;
 	} else if (isVAsyncNode(lastInput)) {
 		const asyncLastInput = lastInput._lastInput;
 		
@@ -61,7 +117,49 @@ export function patch(lastInput: Input, nextInput: Input, parentDomNode: HTMLEle
 	}
 }
 
-function patchVAsyncNode(lastVAsyncNode: VAsyncNode, nextVAsyncNode: VAsyncNode, parentDomNode: HTMLElement, lifecycle: Lifecycle, instance: Object, namespace: string, isKeyed: boolean, isRoot: boolean) {
+function patchVElement(lastVElement: VElement, nextVElement: VElement, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot) {
+	const lastTag: string = lastVElement._tag;
+	const nextTag: string = nextVElement._tag;
+	const nextHooks = nextVElement._hooks;
+	const domNode: HTMLElement | SVGAElement | DocumentFragment = lastVElement._dom;
+	const _isKeyed = (lastVElement._isKeyed && nextVElement._isKeyed) || isKeyed;
+
+	nextVElement._dom = domNode;
+	if (lastTag !== nextTag) {
+		unmount(lastVElement, null, lifecycle, isRoot, true);
+		replaceChild(parentDomNode, mount(nextVElement, null, lifecycle, instance, namespace, _isKeyed), domNode);
+	} else {
+		const lastText: string | number = lastVElement._text;
+		const nextText: string | number = nextVElement._text;
+
+		if (lastText !== nextText) {
+			if (isNull(nextText)) {
+				setTextContent(null, domNode as HTMLElement, false);
+			} else {
+				setTextContent(nextText as string, domNode as HTMLElement, !isNull(lastText));
+			}
+		} else {
+			let lastChildren: Array<Input> | Input = lastVElement._children;
+			let nextChildren: Array<Input> | Input = nextVElement._children;
+
+			if (lastChildren !== nextChildren) {
+				lastChildren = normaliseInput(lastChildren);
+				nextChildren = normaliseInput(nextChildren);
+				patch(lastChildren, nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, isRoot);
+			}
+		}
+		// TODO hooks
+		// TODO events
+		// TODO props
+		// TODO attrs
+	}
+}
+
+function patchVEmptyNode(lastVEmptyNode: VEmptyNode, nextVEmptyNode: VEmptyNode) {
+	nextVEmptyNode._dom = lastVEmptyNode._dom;
+}
+
+function patchVAsyncNode(lastVAsyncNode: VAsyncNode, nextVAsyncNode: VAsyncNode, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, instance: StatefulComponent, namespace: string, isKeyed: boolean, isRoot: boolean) {
 	const lastInput: Input = lastVAsyncNode._lastInput;
 	const nextAsync: Promise<any> = nextVAsyncNode._async;
 	
@@ -70,10 +168,8 @@ function patchVAsyncNode(lastVAsyncNode: VAsyncNode, nextVAsyncNode: VAsyncNode,
 			lastVAsyncNode._cancel = true;
 			nextAsync.then(nextInput => {
 				if (isFalse(nextVAsyncNode._cancel)) {
-					if (!isInvalid(nextInput) && !isVNode(nextInput)) {
-						nextInput = normaliseInput(nextInput);
-					}
-					const domNode: HTMLNode = mount(nextInput, null, lifecycle, instance, namespace, isKeyed);
+					nextInput = normaliseInput(nextInput);
+					const domNode: HTMLElement | SVGAElement | DocumentFragment | Text = mount(nextInput, null, lifecycle, instance, namespace, isKeyed);
 					
 					replaceChild(parentDomNode, domNode, lastVAsyncNode._dom);
 					nextVAsyncNode._dom = domNode;
@@ -88,14 +184,12 @@ function patchVAsyncNode(lastVAsyncNode: VAsyncNode, nextVAsyncNode: VAsyncNode,
 	}
 }
 
-export function patchInputWithPromiseInput(lastInput: Input, vAsyncNode: VAsyncNode, parentDomNode: HTMLElement, lifecycle: Lifecycle, instance: Object, namespace: string, isKeyed: boolean, isRoot: boolean) {
+export function patchInputWithPromiseInput(lastInput: Input, vAsyncNode: VAsyncNode, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, instance: StatefulComponent, namespace: string, isKeyed: boolean, isRoot: boolean) {
 	const promise: Promise<any> = vAsyncNode._async;
 	
 	promise.then(nextInput => {
 		if (isFalse(vAsyncNode._cancel)) {
-			if (!isInvalid(nextInput) && !isVNode(nextInput)) {
-				nextInput = normaliseInput(nextInput);
-			}
+			nextInput = normaliseInput(nextInput);
 			patch(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
 			
 			vAsyncNode._dom = getDomNodeFromInput(nextInput, parentDomNode);
@@ -104,7 +198,7 @@ export function patchInputWithPromiseInput(lastInput: Input, vAsyncNode: VAsyncN
 	})
 }
 
-function patchNonKeyedArray(lastArray: Array<Input>, nextArray: Array<Input>, parentDomNode: HTMLElement, lifecycle: Lifecycle, instance: Object, namespace: string, isRoot: boolean) {
+function patchNonKeyedArray(lastArray: Array<Input>, nextArray: Array<Input>, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, instance: StatefulComponent, namespace: string, isRoot: boolean) {
 	// optimisaiton technique, can we delay doing this upon finding an invalid child and then falling back?
 	// it is expensive to do if we somehow know both arrays are the same length, even once flattened
 	lastArray = normaliseArray(lastArray, false);
@@ -139,6 +233,40 @@ function patchVTextNode(lastVTextNode: VTextNode, nextVTextNode: VTextNode) {
 }
 
 // TODO this function should throw if it can't find the key on an item
-function patchKeyedArray(lastArray: Array<Input>, nextArray: Array<Input>, parentDomNode: HTMLElement, lifecycle: Lifecycle, instance: Object, namespace: string) {
+function patchKeyedArray(lastArray: Array<Input>, nextArray: Array<Input>, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, instance: Object, namespace: string) {
 	
+}
+
+export function patchStyle(lastValue: string | number | boolean | Object, nextValue: string | number | boolean | Object, domNode: HTMLElement | SVGAElement) {
+	if (isString(nextValue)) {
+		domNode.style.cssText = nextValue;
+	} else if (isUndef(lastValue)) {
+		if (!isUndef(nextValue)) {
+			const styleKeys = Object.keys(nextValue);
+
+			for (let i = 0; i < styleKeys.length; i++) {
+				const style = styleKeys[i];
+
+				domNode.style[style] = nextValue[style];
+			}
+		}
+	} else if (isUndef(nextValue)) {
+		domNode.removeAttribute('style');
+	} else {
+		const styleKeys = Object.keys(nextValue);
+
+		for (let i = 0; i < styleKeys.length; i++) {
+			const style = styleKeys[i];
+
+			domNode.style[style] = nextValue[style];
+		}
+		const lastStyleKeys = Object.keys(lastValue);
+
+		for (let i = 0; i < lastStyleKeys.length; i++) {
+			const style = lastStyleKeys[i];
+			if (isUndef(nextValue[style])) {
+				domNode.style[style] = '';
+			}
+		}
+	}
 }

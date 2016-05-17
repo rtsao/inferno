@@ -1,8 +1,13 @@
+import { Root, isTrue } from '../shared'; 
+import { roots } from './rendering';
+
 export default class Lifecyle {
 	private callbacks: Array<Function>;
+	private domNode: HTMLElement;
 	
-	constructor() {
-		this.callbacks = [];    
+	constructor(domNode: HTMLElement) {
+		this.domNode = domNode;
+		this.callbacks = [];
 	}
 	callback(callback: Function) {
 		this.callbacks.push(callback);
@@ -16,5 +21,8 @@ export default class Lifecyle {
 				callbacks[i]();
 			}
 		}
+	}
+	deleteRoot() {
+		roots.delete(this.domNode);
 	}
 }
