@@ -223,15 +223,37 @@ describe('General sweep tests - (non-JSX)', () => {
 			render(element('span').children([ element('span'), element('div') ]), container);
 			expect(container.innerHTML).to.equal('<span><span></span><div></div></span>');
 		});
-		it('Mount #2', () => {
+		it('Unmount', () => {
+			render(element('div'), container);
+			expect(container.innerHTML).to.equal('<div></div>');
+			render(null, container);
+			expect(container.innerHTML).to.equal('');
+			render(element('div').children(element('div')), container);
+			expect(container.innerHTML).to.equal('<div><div></div></div>');
+			render(null, container);
+			expect(container.innerHTML).to.equal('');
+			render(element('div').children(element('div')), container);
+			expect(container.innerHTML).to.equal('<div><div></div></div>');
+			render(element('div'), container);
+			expect(container.innerHTML).to.equal('<div></div>');
+		});		
+		it('Patch', () => {
 			render(element('div').props({ className: 'foo' }), container);
 			expect(container.innerHTML).to.equal('<div class="foo"></div>');
 			render(element('span').props({ className: 'bar' }), container);
 			expect(container.innerHTML).to.equal('<span class="bar"></span>');
 			render(element('span').children(element('span')), container);
 			expect(container.innerHTML).to.equal('<span><span></span></span>');
-			render(element('span').children([ element('span'), element('div') ]), container);
-			expect(container.innerHTML).to.equal('<span><span></span><div></div></span>');
+			render(element('span').props({ className: 'foo' }).children([ element('span'), element('div') ]), container);
+			expect(container.innerHTML).to.equal('<span class="foo"><span></span><div></div></span>');
+			render(element('span').props({ className: 'bar' }).children([ element('span'), element('div') ]), container);
+			expect(container.innerHTML).to.equal('<span class="bar"><span></span><div></div></span>');
+			render(element('span').props({ className: 'bar', id: 'test' }).children([ element('span'), element('div').attrs({'foo': 'bar'}) ]), container);
+			expect(container.innerHTML).to.equal('<span class="bar" id="test"><span></span><div foo="bar"></div></span>');
+			render(element('span').props({ className: 'bar', id: 'test' }).children([ element('span'), element('div').attrs({'bar': 'foo'}) ]), container);
+			expect(container.innerHTML).to.equal('<span class="bar" id="test"><span></span><div bar="foo"></div></span>');
+			render(element('span').props({ className: 'bar', id: 'test' }).children([ element('span'), element('div').attrs({'bar': 'foo2'}) ]), container);
+			expect(container.innerHTML).to.equal('<span class="bar" id="test"><span></span><div bar="foo2"></div></span>');
 		});
 	});
 });

@@ -96,6 +96,8 @@ export function setAttribute(name: string, value: string | number, domNode: HTML
 		} else {
 			domNode.setAttribute(name, value as string);
 		}
+	} else {
+		domNode.removeAttribute(name);
 	}
 }
 
@@ -107,6 +109,14 @@ export function setProperty(name: string, value: string | number | boolean | Obj
 			patchStyle(null, value, domNode);
 		} else {
 			domNode[name] = value;
+		}
+	} else {
+		if (name === 'className') {
+			domNode.removeAttribute('class');
+		} else if (name === 'style') {
+			domNode.removeAttribute('style');	
+		} else {
+			domNode[name] = '';	
 		}
 	}
 }

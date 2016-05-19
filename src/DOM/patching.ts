@@ -35,7 +35,9 @@ import {
 	replaceInputWithArray, 
 	replaceVAsyncNodeWithInput, 
 	replaceChild,
-	setTextContent
+	setTextContent,
+	setProperty,
+	setAttribute
 } from './shared';
 import Lifecycle from './Lifecycle';
 import { unmount } from './unmounting';
@@ -117,6 +119,48 @@ export function patch(lastInput: Input, nextInput: Input, parentDomNode: HTMLEle
 	}
 }
 
+function patchObjects(lastObject, nextObject, setFunc, patchFunc, domNode, namespace) {
+	if (isNull(nextObject)) {
+		const keys = Object.keys(lastObject);
+		
+		for (let i = 0; i < keys.length; i++) {
+			const name = keys[i];
+			
+			setFunc(name, null, domNode);
+		}		
+	} else {
+		if (isNull(lastObject)) {
+			const keys = Object.keys(nextObject);
+		
+			for (let i = 0; i < keys.length; i++) {
+				const name = keys[i];
+				
+				setFunc(name, nextObject[name], domNode);
+			}	
+		} else {
+			const lastKeys = Object.keys(lastObject);
+			const nextKeys = Object.keys(nextObject);
+			
+			for (let i = 0; i < lastKeys.length; i++) {
+				const name = lastKeys[i];
+				
+				if (!isUndef(nextObject[name])) {
+					patchFunc(name, lastObject[name], nextObject[name], domNode, namespace);
+				} else {
+					setFunc(name, null, domNode, namespace);
+				}
+			}
+			for (let i = 0; i < nextKeys.length; i++) {
+				const name = nextKeys[i];
+				
+				if (isUndef(lastObject[name])) {
+					setFunc(name, nextObject[name], domNode, namespace);
+				}
+			}
+		}
+	}
+}
+
 function patchVElement(lastVElement: VElement, nextVElement: VElement, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot) {
 	const lastTag: string = lastVElement._tag;
 	const nextTag: string = nextVElement._tag;
@@ -148,10 +192,19 @@ function patchVElement(lastVElement: VElement, nextVElement: VElement, parentDom
 				patch(lastChildren, nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, isRoot);
 			}
 		}
-		// TODO hooks
+		const lastProps = lastVElement._props;
+		const nextProps = nextVElement._props;
+		
+		if (lastProps !== nextProps) {
+			patchObjects(lastProps, nextProps, setProperty, patchProperty, domNode, namespace);
+		}
+		const lastAttrs = lastVElement._attrs;
+		const nextAttrs = nextVElement._attrs;
+		
+		if (lastAttrs !== nextAttrs) {
+			patchObjects(lastAttrs, nextAttrs, setAttribute, patchAttribute, domNode, namespace);
+		}		
 		// TODO events
-		// TODO props
-		// TODO attrs
 	}
 }
 
@@ -235,6 +288,24 @@ function patchVTextNode(lastVTextNode: VTextNode, nextVTextNode: VTextNode) {
 // TODO this function should throw if it can't find the key on an item
 function patchKeyedArray(lastArray: Array<Input>, nextArray: Array<Input>, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, instance: Object, namespace: string) {
 	
+}
+
+function patchAttribute(name, lastValue, nextValue, domNode, namespace) {
+	if (lastValue !== nextValue) {
+		setAttribute(name, nextValue, domNode, namespace);
+	}
+}
+
+function patchProperty(name, lastValue, nextValue, domNode) {
+	if (lastValue !== nextValue) {
+		if (name === 'className') {
+			domNode.className = nextValue;
+		} else if (name === 'style') {
+			patchStyle(lastValue, nextValue, domNode)
+		} else {
+			domNode[name] = nextValue;
+		}
+	}
 }
 
 export function patchStyle(lastValue: string | number | boolean | Object, nextValue: string | number | boolean | Object, domNode: HTMLElement | SVGAElement) {

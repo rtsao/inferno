@@ -24,4 +24,8 @@ export default class VElement implements VElementType {
 		this._props = props;
 		return this;
 	}
+	attrs(attrs: Object): VElement {
+		this._attrs = attrs;
+		return this;
+	}
 }
