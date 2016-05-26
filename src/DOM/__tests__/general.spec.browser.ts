@@ -1,11 +1,12 @@
-import { render } from './../rendering';
-import { element } from './../../core/index';
+declare var describe;
+declare var it;
+declare var beforeEach;
+declare var afterEach;
+declare var expect;
 
-const describe = window['describe'];
-const it = window['it'];
-const beforeEach = window['beforeEach'];
-const afterEach = window['afterEach'];
-const expect = window['expect'];
+import { render } from '../rendering';
+import { element, component } from '../../core/index';
+import Component from '../../component/index';
 
 describe('General sweep tests - (non-JSX)', () => {
 	let container: HTMLElement;
@@ -255,5 +256,62 @@ describe('General sweep tests - (non-JSX)', () => {
 			render(element('span').props({ className: 'bar', id: 'test' }).children([ element('span'), element('div').attrs({'bar': 'foo2'}) ]), container);
 			expect(container.innerHTML).to.equal('<span class="bar" id="test"><span></span><div bar="foo2"></div></span>');
 		});
+	});
+	describe('Components', () => {
+		describe('Stateless', () => {
+			const StatelessComponent = ({ message }) => {
+				return message;
+			};
+			
+			const StatelessComponent2 = ({ children }) => {
+				return element('div').children(children);
+			};
+			
+			it('Mount', () => {
+				render(component(StatelessComponent).props({ message: 'Hello world!' }), container);
+				expect(container.innerHTML).to.equal('Hello world!');
+			});
+			it('Unmount', () => {
+				render(component(StatelessComponent).props({ message: 'Hello world!' }), container);
+				expect(container.innerHTML).to.equal('Hello world!');
+				render(null, container);
+				expect(container.innerHTML).to.equal('');
+				render(component(StatelessComponent2).props({ children: component(StatelessComponent).props({ message: 'Hello world!' }) }), container);
+				expect(container.innerHTML).to.equal('<div>Hello world!</div>');
+				render(component(StatelessComponent).props({ message: 'Hello world!' }), container);
+				expect(container.innerHTML).to.equal('Hello world!');
+			});		
+			it('Patch', () => {
+				render(element('div').props({ className: 'foo' }), container);
+				expect(container.innerHTML).to.equal('<div class="foo"></div>');
+				render(component(StatelessComponent).props({ message: 'Hello world!' }), container);
+				expect(container.innerHTML).to.equal('Hello world!');
+				render(element('div').props({ className: 'foo' }), container);
+				expect(container.innerHTML).to.equal('<div class="foo"></div>');
+			});
+		});
+		describe('Stateful', () => {
+			class StatefulComponent extends Component {
+				render() {
+					return this.props.message;
+				}
+			}
+			
+			it('Mount', () => {
+				render(component(StatefulComponent).props({ message: 'Hello world!' }), container);
+				expect(container.innerHTML).to.equal('Hello world!');
+			});
+			it('Unnount', () => {
+				render(component(StatefulComponent).props({ message: 'Hello world!' }), container);
+				render(null, container);
+				expect(container.innerHTML).to.equal('');
+			});
+			it('Patch', () => {
+				render(component(StatefulComponent).props({ message: 'Hello world!' }), container);
+				expect(container.innerHTML).to.equal('Hello world!');
+				render(component(StatefulComponent).props({ message: 'Hello world 2!' }), container);
+				expect(container.innerHTML).to.equal('Hello world 2!');
+			});
+		});		
 	});
 });

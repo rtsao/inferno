@@ -1,31 +1,23 @@
 import * as p from 'path';
 import * as fs from 'fs';
 import { rollup } from 'rollup';
-import babel from 'rollup-plugin-babel';
+import buble from 'rollup-plugin-buble';
 import nodeResolve from 'rollup-plugin-node-resolve';
 import replace from 'rollup-plugin-replace';
 import uglify from 'rollup-plugin-uglify';
 import filesize from 'rollup-plugin-filesize';
 import pack from '../package.json';
 import stub from 'rollup-plugin-stub';
+import typescript from 'rollup-plugin-typescript';
 
 const plugins = [
-	babel({
-		babelrc: false,
-		presets: 'es2015-rollup',
-		plugins: [
-			'transform-inline-environment-variables',
-			'transform-undefined-to-void',
-			'babel-plugin-syntax-jsx',
-			'babel-plugin-inferno',
-			'transform-object-rest-spread'
-		]
-	}),
+	typescript(),
+	buble(),
 	nodeResolve({
 		jsnext: true,
 		main: true
 	}),
-	stub(),
+	// stub(),
 	filesize(),
 	replace({
 		'process.env.NODE_ENV': JSON.stringify('production'),
@@ -55,33 +47,33 @@ const bundles = [
 	{
 		moduleGlobal: 'Inferno',
 		moduleName: 'inferno',
-		moduleEntry: 'packages/inferno/src/index.js'
+		moduleEntry: 'packages/inferno/src/index.ts'
 	},
 	{
 		moduleGlobal: 'InfernoDOM',
 		moduleName: 'inferno-dom',
-		moduleEntry: 'packages/inferno-dom/src/index.js'
+		moduleEntry: 'packages/inferno-dom/src/index.ts'
 	},
-	{
-		moduleGlobal: 'InfernoServer',
-		moduleName: 'inferno-server',
-		moduleEntry: 'packages/inferno-server/src/index.js'
-	},
-	{
-		moduleGlobal: 'InfernoComponent',
-		moduleName: 'inferno-component',
-		moduleEntry: 'packages/inferno-component/src/index.js'
-	},
-	{
-		moduleGlobal: 'InfernoTestUtils',
-		moduleName: 'inferno-test-utils',
-		moduleEntry: 'packages/inferno-test-utils/src/index.js'
-	},
-	{
-		moduleGlobal: 'InfernoCreateElement',
-		moduleName: 'inferno-create-element',
-		moduleEntry: 'packages/inferno-create-element/src/index.js'
-	}
+	// {
+	// 	moduleGlobal: 'InfernoServer',
+	// 	moduleName: 'inferno-server',
+	// 	moduleEntry: 'packages/inferno-server/src/index.js'
+	// },
+	// {
+	// 	moduleGlobal: 'InfernoComponent',
+	// 	moduleName: 'inferno-component',
+	// 	moduleEntry: 'packages/inferno-component/src/index.js'
+	// },
+	// {
+	// 	moduleGlobal: 'InfernoTestUtils',
+	// 	moduleName: 'inferno-test-utils',
+	// 	moduleEntry: 'packages/inferno-test-utils/src/index.js'
+	// },
+	// {
+	// 	moduleGlobal: 'InfernoCreateElement',
+	// 	moduleName: 'inferno-create-element',
+	// 	moduleEntry: 'packages/inferno-create-element/src/index.js'
+	// }
 ];
 
 function createBundle({moduleGlobal, moduleName, moduleEntry}) {

@@ -2,7 +2,16 @@ export type VNode = VElement | VTextNode | VComponent | VTemplate | VAsyncNode |
 export type Input = string | number | VNode | Promise<any> | Array<string | number | VNode | Promise<any> | Array<any>>;
 
 export interface StatefulComponent {
-	refs: Object
+	refs: Object,
+	_lastInput: Input,
+	componentWillUnmount: Function,
+	componentWillUpdate: Function,
+	componentDidUpdate: Function,
+	componentShouldUpdate: Function,
+	render: Function,
+	props: Props,
+	state: Object,
+	_blockSetState: boolean
 }
 
 export interface VElement {
@@ -10,7 +19,7 @@ export interface VElement {
 	_children: Input | Array<any>,
 	_dom: HTMLElement | SVGAElement | DocumentFragment,
 	_key: string | number,
-	_props: Object,
+	_props: Props,
 	_attrs: Object,
 	_events: Object,
 	_hooks: Hooks,
@@ -29,12 +38,12 @@ export interface VTextNode {
 export interface VComponent {
 	_component: Function,
 	_dom: HTMLElement | SVGAElement | DocumentFragment,
-	_props: Object,
-	_hooks: Object,
+	_props: Props,
+	_hooks: Hooks,
 	_key: string | number
-	_instance: Input,
-	_ref: string | number,
-	_isStateful: boolean
+	_instance: Input | StatefulComponent,
+	_ref: string | Function,
+	_isStateful: boolean,
 }
 
 export interface VTemplate {
@@ -68,11 +77,22 @@ export interface Blueprint {
 	schemaFunc: Function
 }
 
+// shortcut for now, we really want it to be Object<any>
+export type Props = any;
+
 export interface Hooks {
 	created: Function,
 	attached: Function,
 	willDetach: Function,
-	detached: Function
+	detached: Function,
+	willUpdate: Function,
+	didUpdate: Function,
+	componentWillMount: Function,
+	componentDidMount: Function,
+	componentWillUnmount: Function,
+	componentShouldUpdate: Function,
+	componentWillUpdate: Function,
+	componentDidUpdate: Function
 }
 
 export interface Root {

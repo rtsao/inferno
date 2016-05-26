@@ -1,7 +1,7 @@
 {
   "name": "inferno",
   "version": "0.7.7",
-  "license": "MPL-2.0",
+  "license": "MIT",
   "description": "An extremely fast, isomorphic JavaScript library for building modern user interfaces",
   "author": {
     "name": "Dominic Gannaway",

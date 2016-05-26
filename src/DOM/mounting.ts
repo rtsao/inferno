@@ -18,7 +18,8 @@ import {
 	isVEmptyNode, 
 	VEmptyNode,
 	Hooks,
-	StatefulComponent
+	StatefulComponent,
+	isTrue
 } from '../shared';
 import { 
 	isVTextNode, 
@@ -32,18 +33,28 @@ import {
 	createElement,
 	setTextContent,
 	setAttribute,
-	setProperty
+	setProperty,
+	setEvent,
+	triggerHook
 } from './shared';
+import { patch } from './patching';
 import Lifecycle from './Lifecycle';
 import VTextNode from './VTextNode';
 
-export function mount(input: Input, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, instance: StatefulComponent, namespace: string, isKeyed: boolean): HTMLElement | SVGAElement | Text | DocumentFragment {
+export function mount(
+	input: Input, 
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	lifecycle: Lifecycle, 
+	instance: StatefulComponent, 
+	namespace: string, 
+	isKeyed: boolean
+): HTMLElement | SVGAElement | Text | DocumentFragment {
 	if (isVEmptyNode(input)) {
 		return mountVEmptyNode(input, parentDomNode as HTMLElement);
 	} else if (isVTextNode(input)) {
 		return mountVTextNode(input, parentDomNode);
 	} else if (isVComponent(input)) {
-		return mountVComponent(input, parentDomNode, lifecycle, instance, namespace);
+		return mountVComponent(input, parentDomNode, lifecycle, instance, namespace, isKeyed);
 	} else if (isVElement(input)) {
 		return mountVElement(input, parentDomNode, lifecycle, instance, namespace);
 	} else if (isVTemplate(input)) {
@@ -89,11 +100,59 @@ function mountVTextNode(vTextNode: VTextNode, parentDomNode: HTMLElement | SVGAE
 	return domTextNode;
 }
 
-function mountVComponent(vComponent: VComponent, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, instance: StatefulComponent, namespace: string): any {
-	// TODO
+export function mountVComponent(vComponent: VComponent, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, lastInstance: StatefulComponent, namespace: string, isKeyed: boolean): any {
+	const isStateful = vComponent._isStateful;
+	const component: StatefulComponent | Function | any = vComponent._component; // we need to use "any" as InfernoComponent is externally available only
+	const props = vComponent._props;
+	const ref = vComponent._ref;
+	let domNode;
+
+	if (isTrue(isStateful)) {
+		const instance = new component(props);
+		const ref = vComponent._ref;
+		
+		instance._patch = patch;
+		if (!isNull(lastInstance) && ref) {
+			mountRef(lastInstance, ref, instance);
+		}
+		// TODO add context to Inferno, it's missing for now
+		const childContext = instance.getChildContext();
+		
+		instance._unmounted = false;
+		instance._pendingSetState = true;
+		instance.componentWillMount();
+		const input = normaliseInput(instance.render());
+				
+		instance._pendingSetState = false;
+		domNode = mount(input, parentDomNode, lifecycle, instance, namespace, isKeyed);
+		instance._lastInput = input;
+		instance.componentDidMount();
+		vComponent._dom = domNode;
+		vComponent._instance = instance;
+	} else {
+		const hooks: Hooks = vComponent._hooks;
+		const input = normaliseInput(component(props));
+
+		if (isArray(input)) {
+			throw new Error('Inferno Error: components cannot have an Array as a root input. Use String, Number, VElement, VComponent, VTemplate, Null or False instead.');
+		}
+		domNode = mount(input, parentDomNode, lifecycle, null, namespace, isKeyed);	
+		vComponent._dom = domNode;
+		vComponent._instance = input;
+
+		if (hooks) {
+			if (hooks.componentWillMount) {
+				triggerHook('componentWillMount', hooks.componentWillMount, domNode, lifecycle, null, null);
+			}
+			if (hooks.componentDidMount) {
+				triggerHook('componentDidMount', hooks.componentDidMount, domNode, lifecycle, null, null);
+			}
+		}
+	}
+	return domNode;
 }
 
-function mountVElement(vElement: VElement, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, instance: StatefulComponent, namespace: string): any {
+export function mountVElement(vElement: VElement, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, instance: StatefulComponent, namespace: string): any {
 	const tag = vElement._tag;
 	let domNode;
 
@@ -138,7 +197,7 @@ function mountVElement(vElement: VElement, parentDomNode: HTMLElement | SVGAElem
 				const eventName: string = eventsKeys[i];
 				const eventValue: Function = events[eventName];
 
-				mountEvent(eventName, eventValue, domNode);
+				setEvent(eventName, eventValue, domNode);
 			}
 		}
 		const attrs: Object = vElement._attrs;
@@ -212,10 +271,6 @@ function mountArray(array: Array<Input>, domNode: HTMLElement | SVGAElement | Do
 
 		mount(arrayItem, domNode, lifecycle, instance, namespace, isKeyed);
 	}
-}
-
-function mountEvent(event: string, value: Function, domNode: HTMLElement | SVGAElement | DocumentFragment) {
-	domNode[event] = value;
 }
 
 function mountRef(instance: StatefulComponent, value: string | Function, refValue: HTMLElement | SVGAElement | DocumentFragment) {

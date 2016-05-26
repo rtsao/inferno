@@ -1,11 +1,11 @@
-import { Input, VElement as VElementType, Hooks } from '../shared';
+import { Input, VElement as VElementType, Hooks, Props } from '../shared';
 
 export default class VElement implements VElementType {
 	public _tag: string;
 	public _dom: HTMLElement | SVGAElement | DocumentFragment = null;
 	public _children: Input = null;
 	public _key: string | number = null;
-	public _props: Object = null;
+	public _props: Props = null;
 	public _attrs: Object = null;
 	public _events: Object = null;
 	public _hooks: Hooks = null;
@@ -20,7 +20,7 @@ export default class VElement implements VElementType {
 		this._children = children;
 		return this;
 	}
-	props(props: Object): VElement {
+	props(props: Props): VElement {
 		this._props = props;
 		return this;
 	}

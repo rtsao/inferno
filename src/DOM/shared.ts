@@ -19,7 +19,7 @@ import VTextNode from './VTextNode';
 import VAsyncNode from '../core/VAsyncNode';
 import VEmptyNode from '../core/VEmptyNode';
 import { unmount } from './unmounting';
-import { mount } from './mounting';
+import { mount, mountVComponent, mountVElement } from './mounting';
 import { patch, patchInputWithPromiseInput, patchStyle } from './patching';
 import Lifecycle from './Lifecycle';
 
@@ -41,7 +41,11 @@ export function appendChild(parentDomNode: HTMLElement | SVGAElement | DocumentF
 	parentDomNode.appendChild(childDomNode);
 }
 
-export function replaceChild(parentDomNode: HTMLElement | SVGAElement | DocumentFragment, newDomNode: HTMLElement | SVGAElement | DocumentFragment | Text, oldDomNode: HTMLElement | SVGAElement | DocumentFragment | Text) {
+export function replaceChild(
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	newDomNode: HTMLElement | SVGAElement | DocumentFragment | Text, 
+	oldDomNode: HTMLElement | SVGAElement | DocumentFragment | Text
+) {
 	parentDomNode.replaceChild(newDomNode, oldDomNode);
 }
 
@@ -49,12 +53,20 @@ export function removeChild(parentDomNode: HTMLElement | SVGAElement | DocumentF
 	parentDomNode.removeChild(childDomNode);
 }
 
-function appendOrInsertChild(parentDomNode: HTMLElement | SVGAElement | DocumentFragment, newDomNode: HTMLElement | SVGAElement | DocumentFragment | Text, nextDomNode: HTMLElement | SVGAElement | DocumentFragment | Text) {
+function appendOrInsertChild(
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	newDomNode: HTMLElement | SVGAElement | DocumentFragment | Text, 
+	nextDomNode: HTMLElement | SVGAElement | DocumentFragment | Text
+) {
 	if (isUndef(nextDomNode)) {
 		parentDomNode.appendChild(newDomNode);
 	} else {
 		parentDomNode.insertBefore(newDomNode, nextDomNode);
 	}
+}
+
+export function setEvent(event: string, value: Function, domNode: HTMLElement | SVGAElement | DocumentFragment) {
+	domNode[event] = value;
 }
 
 export function setText(textNode: Text, text: string | number) {
@@ -196,19 +208,59 @@ export function triggerHook(name: string, func: Function, domNode: HTMLElement |
 	}
 }
 
-export function replaceInputWithPlaceholder(input: Input, parentDomNode: HTMLElement, lifecycle: Lifecycle): void {
+export function replaceInputWithVElement(
+	input: Input, 
+	vElement: VElement, 
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	lifecycle: Lifecycle, 
+	instance: StatefulComponent, 
+	namespace: string, 
+	isKeyed: boolean, 
+	isRoot: boolean
+) {
+	const domNode = mountVElement(vElement, null, lifecycle, instance, namespace);
+	
+	replaceChild(parentDomNode, domNode, getDomNodeFromInput(input, null));
+	unmount(input, parentDomNode, lifecycle, instance, isRoot, true);
+}
+
+export function replaceInputWithVComponent(
+	input: Input, 
+	vComponent: VComponent, 
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	lifecycle: Lifecycle, 
+	instance: StatefulComponent, 
+	namespace: string, 
+	isKeyed: boolean, 
+	isRoot: boolean
+) {
+	const domNode = mountVComponent(vComponent, null, lifecycle, instance, namespace, isKeyed);
+	
+	replaceChild(parentDomNode, domNode, getDomNodeFromInput(input, null));
+	unmount(input, parentDomNode, lifecycle, instance, isRoot, true);
+}
+
+export function replaceInputWithPlaceholder(input: Input, parentDomNode: HTMLElement, lifecycle: Lifecycle, instance: StatefulComponent): void {
 	const placeholder = createPlaceholder();
 
 	if (isArray(input)) {
 		appendOrInsertChild(parentDomNode, placeholder, getDomNodeFromInput(input, parentDomNode));
-		unmount(input, parentDomNode, lifecycle, true, false);
+		unmount(input, parentDomNode, lifecycle, instance, true, false);
 	} else {
 		replaceChild(parentDomNode, placeholder, getDomNodeFromInput(input, parentDomNode));
-		unmount(input, parentDomNode, lifecycle, true, true);
+		unmount(input, parentDomNode, lifecycle, instance, true, true);
 	}
 }
 
-export function replaceVTextNodeWithInput(vTextNode: VTextNode, input: Input, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, instance: StatefulComponent, namespace: string, isKeyed: boolean): void {
+export function replaceVTextNodeWithInput(
+	vTextNode: VTextNode, 
+	input: Input, 
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	lifecycle: Lifecycle, 
+	instance: StatefulComponent, 
+	namespace: string, 
+	isKeyed: boolean
+): void {
 	const domTextNode = vTextNode._dom;
 
 	if (!isInvalid(input) && !isVNode(input)) {
@@ -217,20 +269,42 @@ export function replaceVTextNodeWithInput(vTextNode: VTextNode, input: Input, pa
 	replaceChild(parentDomNode, mount(input, null, lifecycle, instance, namespace, isKeyed), domTextNode);
 }
 
-export function replaceArrayWithInput(parentDomNode, newDomNode, oldArray, lifecycle): void {
+export function replaceArrayWithInput(
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	newDomNode: HTMLElement | SVGAElement | DocumentFragment | Text, 
+	oldArray: Array<any>, 
+	lifecycle: Lifecycle, 
+	instance: StatefulComponent
+): void {
 	// we need to insert out new object before the first item of the array, then unmount the array
 	const firstItem: Array<Input> = oldArray[0];
 	let firstDomNode: HTMLElement | Text;
 
 	appendOrInsertChild(parentDomNode, newDomNode, getDomNodeFromInput(firstItem, null));
-	unmount(oldArray, parentDomNode, lifecycle, true, false);	
+	unmount(oldArray, parentDomNode, lifecycle, instance, true, false);	
 }
 
-export function replaceInputWithArray(input: Input, array: Array<Input>, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, instance, namespace, isKeyed): void {
+export function replaceInputWithArray(
+	input: Input, 
+	array: Array<Input>, 
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	lifecycle: Lifecycle, 
+	instance: StatefulComponent, 
+	namespace: string, 
+	isKeyed: boolean
+): void {
 	replaceChild(parentDomNode, mount(array, null, lifecycle, instance, namespace, isKeyed), getDomNodeFromInput(input, null));
 }
 
-export function replaceVAsyncNodeWithInput(vAsyncNode: VAsyncNode, input: Input, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, instance: StatefulComponent, namespace: string, isKeyed: boolean): void {
+export function replaceVAsyncNodeWithInput(
+	vAsyncNode: VAsyncNode, 
+	input: Input, 
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	lifecycle: Lifecycle, 
+	instance: StatefulComponent, 
+	namespace: string, 
+	isKeyed: boolean
+): void {
 	const domNode: HTMLElement | SVGAElement | DocumentFragment | Text = vAsyncNode._dom;
 	
 	vAsyncNode._cancel = true;
