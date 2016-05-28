@@ -19,7 +19,7 @@ import VTextNode from './VTextNode';
 import VAsyncNode from '../core/VAsyncNode';
 import VEmptyNode from '../core/VEmptyNode';
 import { unmount } from './unmounting';
-import { mount, mountVComponent, mountVElement } from './mounting';
+import { mount, mountVComponent, mountVElement, mountVEmptyNode } from './mounting';
 import { patch, patchInputWithPromiseInput, patchStyle } from './patching';
 import Lifecycle from './Lifecycle';
 
@@ -37,7 +37,10 @@ export function createPlaceholder(): Text {
 	return createTextNode('');
 }
 
-export function appendChild(parentDomNode: HTMLElement | SVGAElement | DocumentFragment, childDomNode: HTMLElement | SVGAElement | DocumentFragment | Text) {
+export function appendChild(
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	childDomNode: HTMLElement | SVGAElement | DocumentFragment | Text
+) {
 	parentDomNode.appendChild(childDomNode);
 }
 
@@ -49,7 +52,10 @@ export function replaceChild(
 	parentDomNode.replaceChild(newDomNode, oldDomNode);
 }
 
-export function removeChild(parentDomNode: HTMLElement | SVGAElement | DocumentFragment, childDomNode: HTMLElement | SVGAElement | DocumentFragment | Text) {
+export function removeChild(
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	childDomNode: HTMLElement | SVGAElement | DocumentFragment | Text
+) {
 	parentDomNode.removeChild(childDomNode);
 }
 
@@ -183,7 +189,10 @@ export function normaliseInput(input: Input): Input {
 	return input;
 }
 
-export function getDomNodeFromInput(input: Input, parentDomNode: HTMLElement | SVGAElement | DocumentFragment): HTMLElement | DocumentFragment | SVGAElement | Text {
+export function getDomNodeFromInput(
+	input: Input, 
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment
+): HTMLElement | DocumentFragment | SVGAElement | Text {
 	if (!isUndef((input as VNode)._dom)) {
 		return (input as VNode)._dom;
 	} else if (isArray(input)) {
@@ -194,7 +203,14 @@ export function getDomNodeFromInput(input: Input, parentDomNode: HTMLElement | S
 	}
 }
 
-export function triggerHook(name: string, func: Function, domNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, lastProps: Object, nextProps: Object) {
+export function triggerHook(
+	name: string, 
+	func: Function, 
+	domNode: HTMLElement | SVGAElement | DocumentFragment, 
+	lifecycle: Lifecycle, 
+	lastProps: Object, 
+	nextProps: Object
+) {
 	switch (name) {
 		case 'attached':
 		case 'detached':
@@ -240,16 +256,31 @@ export function replaceInputWithVComponent(
 	unmount(input, parentDomNode, lifecycle, instance, isRoot, true);
 }
 
-export function replaceInputWithPlaceholder(input: Input, parentDomNode: HTMLElement, lifecycle: Lifecycle, instance: StatefulComponent): void {
-	const placeholder = createPlaceholder();
+export function replaceEmptyNodeWithInput(
+	vEmptyNode: VEmptyNode, 
+	input: Input, 
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	lifecycle: Lifecycle, 
+	instance: StatefulComponent, 
+	namespace: string,
+	isKeyed: boolean
+) {
+	const emptyDomNode = vEmptyNode._dom;
 
-	if (isArray(input)) {
-		appendOrInsertChild(parentDomNode, placeholder, getDomNodeFromInput(input, parentDomNode));
-		unmount(input, parentDomNode, lifecycle, instance, true, false);
-	} else {
-		replaceChild(parentDomNode, placeholder, getDomNodeFromInput(input, parentDomNode));
-		unmount(input, parentDomNode, lifecycle, instance, true, true);
+	if (!isInvalid(input) && !isVNode(input)) {
+		input = normaliseInput(input);
 	}
+	replaceChild(parentDomNode, mount(input, null, lifecycle, instance, namespace, isKeyed), emptyDomNode);
+}
+
+export function replaceInputWithEmptyNode(
+	input: Input, 
+	vEmptyNode: VEmptyNode, 
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	lifecycle: Lifecycle, 
+	instance: StatefulComponent
+): void {
+	replaceChild(parentDomNode, mountVEmptyNode(vEmptyNode, null), getDomNodeFromInput(input, null));
 }
 
 export function replaceVTextNodeWithInput(

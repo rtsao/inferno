@@ -163,6 +163,7 @@
     }
 
     var badInput = 'Inferno Error: bad input(s) passed to "patch". Please ensure only valid objects are used in your render.';
+    var invalidInput = 'Inferno Error: components cannot have an Array as a root input. Use String, Number, VElement, VComponent, VTemplate, Null or False instead.';
     function patch(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot) {
         if (isVEmptyNode(nextInput)) {
             if (isVEmptyNode(lastInput)) {
@@ -216,30 +217,21 @@
         else if (isVTemplate(nextInput)) {
             debugger;
         }
-        else if (isVTemplate(lastInput)) {
-            debugger;
-        }
         else if (isVElement(nextInput)) {
             if (isVElement(lastInput)) {
                 patchVElement(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
             }
             else {
-                debugger;
+                replaceInputWithVElement(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
             }
-        }
-        else if (isVElement(lastInput)) {
-            debugger;
         }
         else if (isVComponent(nextInput)) {
             if (isVComponent(lastInput)) {
                 patchVComponent(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
             }
             else {
-                debugger;
+                replaceInputWithVComponent(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
             }
-        }
-        else if (isVComponent(lastInput)) {
-            debugger;
         }
         else if (isVAsyncNode(lastInput)) {
             var asyncLastInput = lastInput._lastInput;
@@ -271,26 +263,65 @@
         var nextProps = nextVComponent._props;
         if (lastComponent === nextComponent) {
             if (isTrue(lastIsStateful)) {
+                if (isTrue(nextIsStateful)) {
+                    var instance = lastVComponent._instance;
+                    var lastInput = instance._lastInput;
+                    var update = instance.componentShouldUpdate();
+                    if (update) {
+                        var lastState = instance.state;
+                        var nextState = Object.assign({}, instance.state);
+                        instance._blockSetState = true;
+                        instance.componentWillUpdate(nextProps, nextState);
+                        instance._blockSetState = false;
+                        instance.props = nextProps;
+                        instance.state = nextState;
+                        var nextInput = normaliseInput(instance.render());
+                        if (isArray(nextInput)) {
+                            throw new Error(invalidInput);
+                        }
+                        patch(lastInput, nextInput, parentDomNode, lifecycle, lastInstance, namespace, isKeyed, isRoot);
+                        instance.componentDidUpdate(lastProps, lastState);
+                        instance._lastInput = nextInput;
+                        nextVComponent._instance = instance;
+                        nextVComponent._dom = nextInput._dom;
+                    }
+                }
+                else {
+                    debugger;
+                }
             }
             else {
                 if (isTrue(nextIsStateful)) {
+                    debugger;
                 }
                 else {
                     var hooks = nextVComponent._hooks;
-                    var lastInput = lastVComponent._instance;
-                    var nextInput = nextComponent(nextProps);
-                    var update = true;
-                    if (hooks && hooks.componentShouldUpdate) {
-                        update = hooks.componentShouldUpdate(lastVComponent._dom, lastProps, nextProps);
+                    var hasHooks = !isNull(hooks);
+                    var lastInput$1 = lastVComponent._instance;
+                    var nextInput$1 = normaliseInput(nextComponent(nextProps));
+                    var update$1 = true;
+                    if (isArray(nextInput$1)) {
+                        if ("production" === 'production') {
+                            throw new Error(invalidInput);
+                        }
                     }
-                    if (isTrue(update)) {
-                        patch(lastInput, nextInput, parentDomNode, lifecycle, null, namespace, false, false);
-                        nextVComponent._dom = nextInput._dom;
-                        nextVComponent._instance = nextInput;
+                    if (hasHooks && hooks.componentShouldUpdate) {
+                        update$1 = hooks.componentShouldUpdate(lastVComponent._dom, lastProps, nextProps);
+                    }
+                    if (isTrue(update$1)) {
+                        if (hasHooks && hooks.componentWillUpdate) {
+                            triggerHook('componentWillUpdate', hooks.componentWillUpdate, lastVComponent._dom, lifecycle, null, null);
+                        }
+                        patch(lastInput$1, nextInput$1, parentDomNode, lifecycle, null, namespace, false, false);
+                        nextVComponent._dom = nextInput$1._dom;
+                        nextVComponent._instance = nextInput$1;
+                        if (hasHooks && hooks.componentDidUpdate) {
+                            triggerHook('componentDidUpdate', hooks.componentDidUpdate, nextVComponent._dom, lifecycle, null, null);
+                        }
                     }
                     else {
-                        nextVComponent._dom = lastInput._dom;
-                        nextVComponent._instance = lastInput;
+                        nextVComponent._dom = lastInput$1._dom;
+                        nextVComponent._instance = lastInput$1;
                     }
                 }
             }
@@ -369,7 +400,7 @@
                 if (lastChildren !== nextChildren) {
                     lastChildren = normaliseInput(lastChildren);
                     nextChildren = normaliseInput(nextChildren);
-                    patch(lastChildren, nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, isRoot);
+                    patch(lastChildren, nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, false);
                 }
             }
             var lastProps = lastVElement._props;
@@ -707,6 +738,16 @@
                 return func(domNode, lastProps, nextProps);
         }
     }
+    function replaceInputWithVElement(input, vElement, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot) {
+        var domNode = mountVElement(vElement, null, lifecycle, instance, namespace);
+        replaceChild(parentDomNode, domNode, getDomNodeFromInput(input, null));
+        unmount(input, parentDomNode, lifecycle, instance, isRoot, true);
+    }
+    function replaceInputWithVComponent(input, vComponent, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot) {
+        var domNode = mountVComponent(vComponent, null, lifecycle, instance, namespace, isKeyed);
+        replaceChild(parentDomNode, domNode, getDomNodeFromInput(input, null));
+        unmount(input, parentDomNode, lifecycle, instance, isRoot, true);
+    }
     function replaceVTextNodeWithInput(vTextNode, input, parentDomNode, lifecycle, instance, namespace, isKeyed) {
         var domTextNode = vTextNode._dom;
         if (!isInvalid(input) && !isVNode(input)) {
@@ -788,21 +829,41 @@
         }
         return domTextNode;
     }
-    function mountVComponent(vComponent, parentDomNode, lifecycle, instance, namespace, isKeyed) {
+    function mountVComponent(vComponent, parentDomNode, lifecycle, lastInstance, namespace, isKeyed) {
         var isStateful = vComponent._isStateful;
         var component = vComponent._component; // we need to use "any" as InfernoComponent is externally available only
         var props = vComponent._props;
         var ref = vComponent._ref;
         var domNode;
         if (isTrue(isStateful)) {
-            var instance$1 = new component(props);
+            var instance = new component(props);
+            var ref$1 = vComponent._ref;
+            instance._patch = patch;
+            if (!isNull(lastInstance) && ref$1) {
+                mountRef(lastInstance, ref$1, instance);
+            }
+            // TODO add context to Inferno, it's missing for now
+            var childContext = instance.getChildContext();
+            instance._unmounted = false;
+            instance._pendingSetState = true;
+            instance.componentWillMount();
+            var input = normaliseInput(instance.render());
+            instance._pendingSetState = false;
+            domNode = mount(input, parentDomNode, lifecycle, instance, namespace, isKeyed);
+            instance._lastInput = input;
+            instance.componentDidMount();
+            vComponent._dom = domNode;
+            vComponent._instance = instance;
         }
         else {
             var hooks = vComponent._hooks;
-            var input = normaliseInput(component(props));
-            domNode = mount(input, parentDomNode, lifecycle, null, namespace, isKeyed);
+            var input$1 = normaliseInput(component(props));
+            if (isArray(input$1)) {
+                throw new Error('Inferno Error: components cannot have an Array as a root input. Use String, Number, VElement, VComponent, VTemplate, Null or False instead.');
+            }
+            domNode = mount(input$1, parentDomNode, lifecycle, null, namespace, isKeyed);
             vComponent._dom = domNode;
-            vComponent._instance = input;
+            vComponent._instance = input$1;
             if (hooks) {
                 if (hooks.componentWillMount) {
                     triggerHook('componentWillMount', hooks.componentWillMount, domNode, lifecycle, null, null);

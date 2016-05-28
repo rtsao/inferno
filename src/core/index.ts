@@ -1,3 +1,4 @@
+import { isFunction } from '../shared';
 import VElement from './VElement';
 import VComponent from './VComponent';
 import VAsyncNode from './VAsyncNode';
@@ -8,6 +9,9 @@ export function element(tag: string): VElement {
 }
 
 export function component(component: Function): VComponent {
+	if (!isFunction(component)) {
+		throw new Error(`Inferno Error: you passed in "${ component }" to Inferno.component(). Inferno.component() expects a Class or Function as the first paramater.`);
+	}
 	return new VComponent(component);
 }
 

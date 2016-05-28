@@ -80,7 +80,7 @@ export function mount(
 	}
 }
 
-export function mountVEmptyNode(vEmptyNode: VEmptyNode, parentDomNode: HTMLElement): Text {
+export function mountVEmptyNode(vEmptyNode: VEmptyNode, parentDomNode: HTMLElement | SVGAElement | DocumentFragment): Text {
 	const placeholder: Text = createPlaceholder();
 	
 	vEmptyNode._dom = placeholder;
@@ -187,6 +187,9 @@ export function mountVElement(vElement: VElement, parentDomNode: HTMLElement | S
 			} else {
 				mount(children, domNode, lifecycle, instance, namespace, isKeyed);
 			}
+		} else {
+			children = vElement._children = normaliseInput(children);
+			mountVEmptyNode(children as VEmptyNode, domNode);
 		}
 		const events: Object = vElement._events;
 

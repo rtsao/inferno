@@ -26,7 +26,8 @@ import {
 	isVTemplate
 } from '../shared';
 import { 
-	replaceInputWithPlaceholder, 
+	replaceInputWithEmptyNode,
+	replaceEmptyNodeWithInput,
 	normaliseArray, 
 	normaliseInput, 
 	getDomNodeFromInput, 
@@ -50,6 +51,7 @@ import { unmount, unmountVComponent } from './unmounting';
 import { mount, mountVEmptyNode, mountVComponent } from './mounting';
 
 const badInput = 'Inferno Error: bad input(s) passed to "patch". Please ensure only valid objects are used in your render.';
+const invalidInput = 'Inferno Error: components cannot have an Array as a root input. Use String, Number, VElement, VComponent, VTemplate, Null or False instead.';
 
 export function patch(
 	lastInput: Input, 
@@ -69,17 +71,14 @@ export function patch(
 				unmount(lastInput, parentDomNode, lifecycle, instance, isRoot, false);
 				lifecycle.deleteRoot();
 			} else {
-				mountVEmptyNode(nextInput, null);
-				// replaceInputWithPlaceholder(lastInput, parentDomNode, lifecycle);	
-				debugger;
+				replaceInputWithEmptyNode(lastInput, nextInput, parentDomNode, lifecycle, instance);	
 			}
 		}
 	} else if (isVEmptyNode(lastInput)) {
 		if (isTrue(isRoot)) {
 			mount(nextInput, parentDomNode, lifecycle, instance, namespace, false);
 		} else {
-			// replacePlaceholderWithInput(nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed);	
-			debugger;
+			replaceEmptyNodeWithInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed);	
 		}
 	} else if (isArray(lastInput)) {
 		if (isArray(nextInput)) {
@@ -168,7 +167,7 @@ function patchVComponent(
 					const nextInput = normaliseInput(instance.render());
 
 					if (isArray(nextInput)) {
-						throw new Error('Inferno Error: components cannot have an Array as a root input. Use String, Number, VElement, VComponent, VTemplate, Null or False instead.');
+						throw new Error(invalidInput);
 					}
 					patch(lastInput, nextInput, parentDomNode, lifecycle, lastInstance, namespace, isKeyed, isRoot);
 					instance.componentDidUpdate(lastProps, lastState);
@@ -191,7 +190,7 @@ function patchVComponent(
 				
 				if (isArray(nextInput)) {
 					if (process.env.NODE_ENV === 'production') {
-						throw new Error('Inferno Error: components cannot have an Array as a root input. Use String, Number, VElement, VComponent, VTemplate, Null or False instead.');
+						throw new Error(invalidInput);
 					}
 				}
 				if (hasHooks && hooks.componentShouldUpdate) {
@@ -301,9 +300,9 @@ function patchVElement(
 			let nextChildren: Array<Input> | Input = nextVElement._children;
 
 			if (lastChildren !== nextChildren) {
-				lastChildren = normaliseInput(lastChildren);
-				nextChildren = normaliseInput(nextChildren);
-				patch(lastChildren, nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, isRoot);
+				lastChildren = lastChildren;
+				nextChildren = nextVElement._children = normaliseInput(nextChildren);
+				patch(lastChildren, nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, false);
 			}
 		}
 		const lastProps: Object = lastVElement._props;

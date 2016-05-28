@@ -9,6 +9,16 @@
     (global.Inferno = factory());
 }(this, function () { 'use strict';
 
+    function isUndef(obj) {
+        return obj === undefined;
+    }
+    function isFunction(obj) {
+        return typeof obj === 'function';
+    }
+    function isStatefulComponent(obj) {
+        return !isUndef(obj.prototype) && obj.prototype.render !== undefined;
+    }
+
     var VElement = function VElement(tag) {
         this._dom = null;
         this._children = null;
@@ -34,13 +44,6 @@
         this._attrs = attrs;
         return this;
     };
-
-    function isUndef(obj) {
-        return obj === undefined;
-    }
-    function isStatefulComponent(obj) {
-        return !isUndef(obj.prototype) && obj.prototype.render !== undefined;
-    }
 
     var VComponent = function VComponent(component) {
         this._dom = null;
@@ -87,6 +90,9 @@
         return new VElement(tag);
     }
     function component(component) {
+        if (!isFunction(component)) {
+            throw new Error(("Inferno Error: you passed in \"" + component + "\" to Inferno.component(). Inferno.component() expects a Class or Function as the first paramater."));
+        }
         return new VComponent(component);
     }
     function async(async) {

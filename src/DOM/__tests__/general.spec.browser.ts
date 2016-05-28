@@ -1,12 +1,12 @@
+import { render } from '../rendering';
+import { element, component } from '../../core/index';
+import Component from '../../component/index';
+
 declare var describe;
 declare var it;
 declare var beforeEach;
 declare var afterEach;
 declare var expect;
-
-import { render } from '../rendering';
-import { element, component } from '../../core/index';
-import Component from '../../component/index';
 
 describe('General sweep tests - (non-JSX)', () => {
 	let container: HTMLElement;

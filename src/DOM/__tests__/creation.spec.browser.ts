@@ -1,10 +1,10 @@
 import { render } from './../rendering';
 
-const describe = window['describe'];
-const it = window['it'];
-const beforeEach = window['beforeEach'];
-const afterEach = window['afterEach'];
-const expect = window['expect'];
+declare var describe;
+declare var it;
+declare var beforeEach;
+declare var afterEach;
+declare var expect;
 
 // import { createUniversalElement } from './../../core/universal';
 
