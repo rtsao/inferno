@@ -161,7 +161,11 @@ function patchVComponent(
 				if (update) {
 					const lastState = instance.state;
 					const nextState = Object.assign({}, instance.state);
-					
+					const childContext = instance.getChildContext();
+
+					if (!isNull(childContext)) {
+						context = Object.assign({}, context, childContext);
+					}
 					instance._blockSetState = true;
 					instance.componentWillUpdate(nextProps, nextState);
 					instance._blockSetState = false;

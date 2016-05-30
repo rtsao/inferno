@@ -4,14 +4,20 @@ export type Input = string | number | VNode | Promise<any> | Array<string | numb
 export interface StatefulComponent {
 	refs: Object,
 	_lastInput: Input,
+	componentWillMount: Function,
+	componentDidMount: Function,
 	componentWillUnmount: Function,
 	componentWillUpdate: Function,
 	componentDidUpdate: Function,
 	componentShouldUpdate: Function,
+	getChildContext: Function,
 	render: Function,
 	props: Props,
 	state: Object,
 	_blockSetState: boolean
+	_patch: Function,
+	_unmounted: boolean,
+	_pendingSetState: boolean
 }
 
 export interface VElement {

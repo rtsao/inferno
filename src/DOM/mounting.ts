@@ -118,20 +118,18 @@ export function mountVComponent(
 	let domNode;
 
 	if (isTrue(isStateful)) {
-		const instance = new component(props);
+		const instance: StatefulComponent = new component(props);
 		const ref = vComponent._ref;
 		
 		instance._patch = patch;
 		if (!isNull(lastInstance) && ref) {
 			mountRef(lastInstance, ref, instance);
 		}
-		// TODO add context to Inferno, it's missing for now
 		const childContext = instance.getChildContext();
 
 		if (!isNull(childContext)) {
 			context = Object.assign({}, context, childContext);
 		}
-		
 		instance._unmounted = false;
 		instance._pendingSetState = true;
 		instance.componentWillMount();
@@ -316,7 +314,7 @@ export function mountArray(
 	}
 }
 
-function mountRef(instance: StatefulComponent, value: string | Function, refValue: HTMLElement | SVGAElement | DocumentFragment) {
+function mountRef(instance: StatefulComponent, value: string | Function, refValue: HTMLElement | SVGAElement | DocumentFragment | StatefulComponent) {
 	if (!isInvalid(instance) && isString(value)) {
 		instance.refs[value] = refValue;
 	}
