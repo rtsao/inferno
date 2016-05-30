@@ -13,7 +13,8 @@ import {
 	isPromise, 
 	isFalse, 
 	isVNode,
-	StatefulComponent
+	StatefulComponent,
+	Context
 } from '../shared';
 import VTextNode from './VTextNode';
 import VAsyncNode from '../core/VAsyncNode';
@@ -232,9 +233,10 @@ export function replaceInputWithVElement(
 	instance: StatefulComponent, 
 	namespace: string, 
 	isKeyed: boolean, 
-	isRoot: boolean
+	isRoot: boolean,
+	context: Context
 ) {
-	const domNode = mountVElement(vElement, null, lifecycle, instance, namespace);
+	const domNode = mountVElement(vElement, null, lifecycle, instance, namespace, context);
 	
 	replaceChild(parentDomNode, domNode, getDomNodeFromInput(input, null));
 	unmount(input, parentDomNode, lifecycle, instance, isRoot, true);
@@ -248,9 +250,10 @@ export function replaceInputWithVComponent(
 	instance: StatefulComponent, 
 	namespace: string, 
 	isKeyed: boolean, 
-	isRoot: boolean
+	isRoot: boolean,
+	context: Context
 ) {
-	const domNode = mountVComponent(vComponent, null, lifecycle, instance, namespace, isKeyed);
+	const domNode = mountVComponent(vComponent, null, lifecycle, instance, namespace, isKeyed, context);
 	
 	replaceChild(parentDomNode, domNode, getDomNodeFromInput(input, null));
 	unmount(input, parentDomNode, lifecycle, instance, isRoot, true);
@@ -263,14 +266,15 @@ export function replaceEmptyNodeWithInput(
 	lifecycle: Lifecycle, 
 	instance: StatefulComponent, 
 	namespace: string,
-	isKeyed: boolean
+	isKeyed: boolean,
+	context: Context
 ) {
 	const emptyDomNode = vEmptyNode._dom;
 
 	if (!isInvalid(input) && !isVNode(input)) {
 		input = normaliseInput(input);
 	}
-	replaceChild(parentDomNode, mount(input, null, lifecycle, instance, namespace, isKeyed), emptyDomNode);
+	replaceChild(parentDomNode, mount(input, null, lifecycle, instance, namespace, isKeyed, context), emptyDomNode);
 }
 
 export function replaceInputWithEmptyNode(
@@ -290,14 +294,15 @@ export function replaceVTextNodeWithInput(
 	lifecycle: Lifecycle, 
 	instance: StatefulComponent, 
 	namespace: string, 
-	isKeyed: boolean
+	isKeyed: boolean,
+	context: Context
 ): void {
 	const domTextNode = vTextNode._dom;
 
 	if (!isInvalid(input) && !isVNode(input)) {
 		input = normaliseInput(input);
 	}
-	replaceChild(parentDomNode, mount(input, null, lifecycle, instance, namespace, isKeyed), domTextNode);
+	replaceChild(parentDomNode, mount(input, null, lifecycle, instance, namespace, isKeyed, context), domTextNode);
 }
 
 export function replaceArrayWithInput(
@@ -322,9 +327,10 @@ export function replaceInputWithArray(
 	lifecycle: Lifecycle, 
 	instance: StatefulComponent, 
 	namespace: string, 
-	isKeyed: boolean
+	isKeyed: boolean,
+	context: Context
 ): void {
-	replaceChild(parentDomNode, mount(array, null, lifecycle, instance, namespace, isKeyed), getDomNodeFromInput(input, null));
+	replaceChild(parentDomNode, mount(array, null, lifecycle, instance, namespace, isKeyed, context), getDomNodeFromInput(input, null));
 }
 
 export function replaceVAsyncNodeWithInput(
@@ -334,7 +340,8 @@ export function replaceVAsyncNodeWithInput(
 	lifecycle: Lifecycle, 
 	instance: StatefulComponent, 
 	namespace: string, 
-	isKeyed: boolean
+	isKeyed: boolean,
+	context: Context
 ): void {
 	const domNode: HTMLElement | SVGAElement | DocumentFragment | Text = vAsyncNode._dom;
 	
@@ -342,5 +349,5 @@ export function replaceVAsyncNodeWithInput(
 	if (!isInvalid(input) && !isVNode(input)) {
 		input = normaliseInput(input);
 	}
-	replaceChild(parentDomNode, mount(input, null, lifecycle, instance, namespace, isKeyed), domNode);
+	replaceChild(parentDomNode, mount(input, null, lifecycle, instance, namespace, isKeyed, context), domNode);
 }

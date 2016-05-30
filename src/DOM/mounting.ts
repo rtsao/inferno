@@ -19,7 +19,8 @@ import {
 	VEmptyNode,
 	Hooks,
 	StatefulComponent,
-	isTrue
+	isTrue,
+	Context
 } from '../shared';
 import { 
 	isVTextNode, 
@@ -47,20 +48,21 @@ export function mount(
 	lifecycle: Lifecycle, 
 	instance: StatefulComponent, 
 	namespace: string, 
-	isKeyed: boolean
+	isKeyed: boolean,
+	context: Context
 ): HTMLElement | SVGAElement | Text | DocumentFragment {
 	if (isVEmptyNode(input)) {
 		return mountVEmptyNode(input, parentDomNode as HTMLElement);
 	} else if (isVTextNode(input)) {
 		return mountVTextNode(input, parentDomNode);
 	} else if (isVComponent(input)) {
-		return mountVComponent(input, parentDomNode, lifecycle, instance, namespace, isKeyed);
+		return mountVComponent(input, parentDomNode, lifecycle, instance, namespace, isKeyed, context);
 	} else if (isVElement(input)) {
-		return mountVElement(input, parentDomNode, lifecycle, instance, namespace);
+		return mountVElement(input, parentDomNode, lifecycle, instance, namespace, context);
 	} else if (isVTemplate(input)) {
-		return mountVTemplate(input, parentDomNode, lifecycle, instance);
+		return mountVTemplate(input, parentDomNode, lifecycle, instance, context);
 	} else if (isVAsyncNode(input)) {
-		return mountVAsyncNode(input, parentDomNode, lifecycle, instance, namespace, isKeyed);
+		return mountVAsyncNode(input, parentDomNode, lifecycle, instance, namespace, isKeyed, context);
 	} else if (isArray(input)) {
 		let domNode: HTMLElement | SVGAElement | DocumentFragment = parentDomNode;
 		
@@ -68,9 +70,9 @@ export function mount(
 			domNode = document.createDocumentFragment();
 		}
 		if (isFalse(isKeyed)) {
-			mountArray(normaliseArray(input, true), domNode, lifecycle, instance, namespace, false);
+			mountArray(normaliseArray(input, true), domNode, lifecycle, instance, namespace, false, context);
 		} else {
-			mountArray(input, domNode, lifecycle, instance, namespace, true);
+			mountArray(input, domNode, lifecycle, instance, namespace, true, context);
 		}
 		return domNode;
 	} else if (isStringOrNumber(input)) {
@@ -100,7 +102,15 @@ function mountVTextNode(vTextNode: VTextNode, parentDomNode: HTMLElement | SVGAE
 	return domTextNode;
 }
 
-export function mountVComponent(vComponent: VComponent, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, lastInstance: StatefulComponent, namespace: string, isKeyed: boolean): any {
+export function mountVComponent(
+	vComponent: VComponent, 
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	lifecycle: Lifecycle, 
+	lastInstance: StatefulComponent, 
+	namespace: string, 
+	isKeyed: boolean, 
+	context: Context
+): any {
 	const isStateful = vComponent._isStateful;
 	const component: StatefulComponent | Function | any = vComponent._component; // we need to use "any" as InfernoComponent is externally available only
 	const props = vComponent._props;
@@ -117,6 +127,10 @@ export function mountVComponent(vComponent: VComponent, parentDomNode: HTMLEleme
 		}
 		// TODO add context to Inferno, it's missing for now
 		const childContext = instance.getChildContext();
+
+		if (!isNull(childContext)) {
+			context = Object.assign({}, context, childContext);
+		}
 		
 		instance._unmounted = false;
 		instance._pendingSetState = true;
@@ -124,7 +138,7 @@ export function mountVComponent(vComponent: VComponent, parentDomNode: HTMLEleme
 		const input = normaliseInput(instance.render());
 				
 		instance._pendingSetState = false;
-		domNode = mount(input, parentDomNode, lifecycle, instance, namespace, isKeyed);
+		domNode = mount(input, parentDomNode, lifecycle, instance, namespace, isKeyed, context);
 		instance._lastInput = input;
 		instance.componentDidMount();
 		vComponent._dom = domNode;
@@ -136,7 +150,7 @@ export function mountVComponent(vComponent: VComponent, parentDomNode: HTMLEleme
 		if (isArray(input)) {
 			throw new Error('Inferno Error: components cannot have an Array as a root input. Use String, Number, VElement, VComponent, VTemplate, Null or False instead.');
 		}
-		domNode = mount(input, parentDomNode, lifecycle, null, namespace, isKeyed);	
+		domNode = mount(input, parentDomNode, lifecycle, null, namespace, isKeyed, context);	
 		vComponent._dom = domNode;
 		vComponent._instance = input;
 
@@ -152,7 +166,14 @@ export function mountVComponent(vComponent: VComponent, parentDomNode: HTMLEleme
 	return domNode;
 }
 
-export function mountVElement(vElement: VElement, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, instance: StatefulComponent, namespace: string): any {
+export function mountVElement(
+	vElement: VElement, 
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	lifecycle: Lifecycle, 
+	instance: StatefulComponent, 
+	namespace: string, 
+	context: Context
+): any {
 	const tag = vElement._tag;
 	let domNode;
 
@@ -183,13 +204,10 @@ export function mountVElement(vElement: VElement, parentDomNode: HTMLElement | S
 				if (!isKeyed) {
 					children = vElement._children = normaliseArray(children as Array<Input>, false);
 				}
-				mountArray(children as Array<Input>, domNode, lifecycle, instance, namespace, isKeyed);
+				mountArray(children as Array<Input>, domNode, lifecycle, instance, namespace, isKeyed, context);
 			} else {
-				mount(children, domNode, lifecycle, instance, namespace, isKeyed);
+				mount(children, domNode, lifecycle, instance, namespace, isKeyed, context);
 			}
-		} else {
-			children = vElement._children = normaliseInput(children);
-			mountVEmptyNode(children as VEmptyNode, domNode);
 		}
 		const events: Object = vElement._events;
 
@@ -241,11 +259,25 @@ export function mountVElement(vElement: VElement, parentDomNode: HTMLElement | S
 	}
 }
 
-function mountVTemplate(vComponent: VTemplate, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, instance: Object): any {
+function mountVTemplate(
+	vComponent: VTemplate, 
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	lifecycle: Lifecycle, 
+	instance: Object, 
+	context: Context
+): any {
 	// TODO
 }
 
-function mountVAsyncNode(vAsyncNode: VAsyncNode, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, instance: StatefulComponent, namespace: string, isKeyed: boolean): Text {
+function mountVAsyncNode(
+	vAsyncNode: VAsyncNode, 
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	lifecycle: Lifecycle, 
+	instance: StatefulComponent, 
+	namespace: string, 
+	isKeyed: boolean, 
+	context: Context
+): Text {
 	const _async = vAsyncNode._async;
 	const placeholder = createPlaceholder();
 	 
@@ -254,7 +286,7 @@ function mountVAsyncNode(vAsyncNode: VAsyncNode, parentDomNode: HTMLElement | SV
 		_async.then(input => {
 			if (isFalse(vAsyncNode._cancel)) {
 				input = normaliseInput(input);
-				const domNode: HTMLElement | SVGAElement | DocumentFragment | Text = mount(input, null, lifecycle, instance, namespace, isKeyed);
+				const domNode: HTMLElement | SVGAElement | DocumentFragment | Text = mount(input, null, lifecycle, instance, namespace, isKeyed, context);
 					
 				replaceChild(parentDomNode || (placeholder.parentNode as HTMLElement), domNode, placeholder);
 				vAsyncNode._dom = domNode;
@@ -268,11 +300,19 @@ function mountVAsyncNode(vAsyncNode: VAsyncNode, parentDomNode: HTMLElement | SV
 	return placeholder;
 }
 
-function mountArray(array: Array<Input>, domNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle, instance, namespace, isKeyed) {
+export function mountArray(
+	array: Array<Input>, 
+	domNode: HTMLElement | SVGAElement | DocumentFragment, 
+	lifecycle: Lifecycle, 
+	instance: StatefulComponent, 
+	namespace: string, 
+	isKeyed: boolean, 
+	context: Context
+) {
 	for (let i: number = 0; i < array.length; i++) {
 		let arrayItem: Input = array[i];
 
-		mount(arrayItem, domNode, lifecycle, instance, namespace, isKeyed);
+		mount(arrayItem, domNode, lifecycle, instance, namespace, isKeyed, context);
 	}
 }
 

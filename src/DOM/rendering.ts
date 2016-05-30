@@ -26,10 +26,10 @@ export function render(input: Input, domNode: HTMLElement) {
 
 	input = normaliseInput(input);
 	if (isUndef(root)) {
-		mount(input, domNode, lifecycle, null, null, false);
+		mount(input, domNode, lifecycle, null, null, false, {});
 		root = new Root(domNode, input);
 	} else {
-		patch(root.input, input, domNode, lifecycle, null, null, false, true);
+		patch(root.input, input, domNode, lifecycle, null, null, false, true, {});
 		root.input = input;
 	}
 	lifecycle.trigger();

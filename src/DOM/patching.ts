@@ -23,7 +23,8 @@ import {
 	VAsyncNode,
 	isString,
 	StatefulComponent,
-	isVTemplate
+	isVTemplate,
+	Context
 } from '../shared';
 import { 
 	replaceInputWithEmptyNode,
@@ -61,7 +62,8 @@ export function patch(
 	instance: StatefulComponent, 
 	namespace: string, 
 	isKeyed: boolean, 
-	isRoot: boolean
+	isRoot: boolean,
+	context: Context
 ): void {
 	if (isVEmptyNode(nextInput)) {
 		if (isVEmptyNode(lastInput)) {
@@ -76,55 +78,55 @@ export function patch(
 		}
 	} else if (isVEmptyNode(lastInput)) {
 		if (isTrue(isRoot)) {
-			mount(nextInput, parentDomNode, lifecycle, instance, namespace, false);
+			mount(nextInput, parentDomNode, lifecycle, instance, namespace, false, context);
 		} else {
-			replaceEmptyNodeWithInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed);	
+			replaceEmptyNodeWithInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, context);	
 		}
 	} else if (isArray(lastInput)) {
 		if (isArray(nextInput)) {
 			if (isKeyed) {
-				patchKeyedArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace);
+				patchKeyedArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, context);
 			} else {
-				patchNonKeyedArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isRoot);
+				patchNonKeyedArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isRoot, context);
 			}
 		} else {
-			replaceArrayWithInput(parentDomNode, mount(nextInput, null, lifecycle, instance, namespace, isKeyed), lastInput, lifecycle, instance);
+			replaceArrayWithInput(parentDomNode, mount(nextInput, null, lifecycle, instance, namespace, isKeyed, context), lastInput, lifecycle, instance);
 		}	
 	} else if (isArray(nextInput)) {
-		replaceInputWithArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed);
+		replaceInputWithArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, context);
 	} else if (isVAsyncNode(nextInput)) {
 		if (isVAsyncNode(lastInput)) {
-			patchVAsyncNode(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
+			patchVAsyncNode(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);
 		} else {
-			patchInputWithPromiseInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
+			patchInputWithPromiseInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);
 		}
 	} else if (isVTemplate(nextInput)) {
 		debugger;
 	} else if (isVElement(nextInput)) {
 		if (isVElement(lastInput)) {
-			patchVElement(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
+			patchVElement(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);
 		} else {
-			replaceInputWithVElement(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);	
+			replaceInputWithVElement(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);	
 		}
 	} else if (isVComponent(nextInput)) {
 		if (isVComponent(lastInput)) {
-			patchVComponent(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
+			patchVComponent(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);
 		} else {
-			replaceInputWithVComponent(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);	
+			replaceInputWithVComponent(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);	
 		}
 	} else if (isVAsyncNode(lastInput)) {
 		const asyncLastInput = lastInput._lastInput;
 		
 		if (isNull(asyncLastInput)) {
-			replaceVAsyncNodeWithInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed);
+			replaceVAsyncNodeWithInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, context);
 		} else {
-			patch(asyncLastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
+			patch(asyncLastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);
 		}
 	} else if (isVTextNode(lastInput)) {
 		if (isVTextNode(nextInput)) {
 			patchVTextNode(lastInput, nextInput);
 		} else {
-			replaceVTextNodeWithInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed)
+			replaceVTextNodeWithInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, context);
 		}
 	} else {
 		throw new Error(badInput);
@@ -139,7 +141,8 @@ function patchVComponent(
 	lastInstance: StatefulComponent, 
 	namespace: string, 
 	isKeyed: boolean, 
-	isRoot: boolean
+	isRoot: boolean,
+	context: Context
 ) {
 	const lastComponent = lastVComponent._component;
 	const nextComponent = nextVComponent._component;
@@ -169,7 +172,7 @@ function patchVComponent(
 					if (isArray(nextInput)) {
 						throw new Error(invalidInput);
 					}
-					patch(lastInput, nextInput, parentDomNode, lifecycle, lastInstance, namespace, isKeyed, isRoot);
+					patch(lastInput, nextInput, parentDomNode, lifecycle, lastInstance, namespace, isKeyed, isRoot, context);
 					instance.componentDidUpdate(lastProps, lastState);
 					instance._lastInput = nextInput;
 					nextVComponent._instance = instance;
@@ -200,7 +203,7 @@ function patchVComponent(
 					if (hasHooks && hooks.componentWillUpdate) {
 						triggerHook('componentWillUpdate', hooks.componentWillUpdate, lastVComponent._dom, lifecycle, null, null);
 					}
-					patch(lastInput, nextInput, parentDomNode, lifecycle, null, namespace, false, false);
+					patch(lastInput, nextInput, parentDomNode, lifecycle, null, namespace, false, false, context);
 					nextVComponent._dom = (nextInput as VElement | VTemplate | VComponent)._dom;
 					nextVComponent._instance = nextInput;
 					if (hasHooks && hooks.componentDidUpdate) {
@@ -213,7 +216,7 @@ function patchVComponent(
 			}
 		}
 	} else {
-		const domNode = mountVComponent(nextVComponent, parentDomNode, lifecycle, lastInstance, namespace, isKeyed);
+		const domNode = mountVComponent(nextVComponent, parentDomNode, lifecycle, lastInstance, namespace, isKeyed, context);
 
 		replaceChild(parentDomNode, domNode, lastVComponent._dom);
 		unmountVComponent(lastVComponent, parentDomNode, lifecycle, lastInstance, true, true);
@@ -270,7 +273,8 @@ function patchVElement(
 	instance: StatefulComponent, 
 	namespace: string, 
 	isKeyed: boolean, 
-	isRoot: boolean
+	isRoot: boolean,
+	context: Context
 ) {
 	const lastTag: string = lastVElement._tag;
 	const nextTag: string = nextVElement._tag;
@@ -281,7 +285,7 @@ function patchVElement(
 	nextVElement._dom = domNode;
 	if (lastTag !== nextTag) {
 		unmount(lastVElement, null, lifecycle, instance, isRoot, true);
-		replaceChild(parentDomNode, mount(nextVElement, null, lifecycle, instance, namespace, _isKeyed), domNode);
+		replaceChild(parentDomNode, mount(nextVElement, null, lifecycle, instance, namespace, _isKeyed, context), domNode);
 	} else {
 		const lastText: string | number = lastVElement._text;
 		const nextText: string | number = nextVElement._text;
@@ -300,9 +304,12 @@ function patchVElement(
 			let nextChildren: Array<Input> | Input = nextVElement._children;
 
 			if (lastChildren !== nextChildren) {
-				lastChildren = lastChildren;
-				nextChildren = nextVElement._children = normaliseInput(nextChildren);
-				patch(lastChildren, nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, false);
+				if (isNull(lastChildren)) {
+					mount(nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, context);
+				} else {
+					nextChildren = nextVElement._children = normaliseInput(nextChildren);
+					patch(lastChildren, nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, false, context);
+				}
 			}
 		}
 		const lastProps: Object = lastVElement._props;
@@ -358,7 +365,8 @@ function patchVAsyncNode(
 	instance: StatefulComponent, 
 	namespace: string, 
 	isKeyed: boolean, 
-	isRoot: boolean
+	isRoot: boolean,
+	context: Context
 ) {
 	const lastInput: Input = lastVAsyncNode._lastInput;
 	const nextAsync: Promise<any> = nextVAsyncNode._async;
@@ -369,7 +377,7 @@ function patchVAsyncNode(
 			nextAsync.then(nextInput => {
 				if (isFalse(nextVAsyncNode._cancel)) {
 					nextInput = normaliseInput(nextInput);
-					const domNode: HTMLElement | SVGAElement | DocumentFragment | Text = mount(nextInput, null, lifecycle, instance, namespace, isKeyed);
+					const domNode: HTMLElement | SVGAElement | DocumentFragment | Text = mount(nextInput, null, lifecycle, instance, namespace, isKeyed, context);
 					
 					replaceChild(parentDomNode, domNode, lastVAsyncNode._dom);
 					nextVAsyncNode._dom = domNode;
@@ -379,7 +387,7 @@ function patchVAsyncNode(
 		}
 	} else {
 		if (isPromise(nextAsync)) {
-			patchInputWithPromiseInput(lastInput, nextVAsyncNode, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
+			patchInputWithPromiseInput(lastInput, nextVAsyncNode, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);
 		}
 	}
 }
@@ -392,14 +400,15 @@ export function patchInputWithPromiseInput(
 	instance: StatefulComponent, 
 	namespace: string, 
 	isKeyed: boolean, 
-	isRoot: boolean
+	isRoot: boolean,
+	context: Context
 ) {
 	const promise: Promise<any> = vAsyncNode._async;
 	
 	promise.then(nextInput => {
 		if (isFalse(vAsyncNode._cancel)) {
 			nextInput = normaliseInput(nextInput);
-			patch(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
+			patch(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);
 			
 			vAsyncNode._dom = getDomNodeFromInput(nextInput, parentDomNode);
 			vAsyncNode._lastInput = nextInput;
@@ -414,7 +423,8 @@ function patchNonKeyedArray(
 	lifecycle: Lifecycle, 
 	instance: StatefulComponent, 
 	namespace: string, 
-	isRoot: boolean
+	isRoot: boolean,
+	context: Context
 ) {
 	// optimisaiton technique, can we delay doing this upon finding an invalid child and then falling back?
 	// it is expensive to do if we somehow know both arrays are the same length, even once flattened
@@ -426,11 +436,11 @@ function patchNonKeyedArray(
 	let i: number = 0;
 	
 	for (; i < commonLength; i++) {
-		patch(lastArray[i], nextArray[i], parentDomNode, lifecycle, instance, namespace, false, isRoot);
+		patch(lastArray[i], nextArray[i], parentDomNode, lifecycle, instance, namespace, false, isRoot, context);
 	}
 	if (lastArrayLength < nextArrayLength) {
 		for (i = commonLength; i < nextArrayLength; i++) {
-			mount(nextArray[i], parentDomNode, lifecycle, instance, namespace, false);
+			mount(nextArray[i], parentDomNode, lifecycle, instance, namespace, false, context);
 		}
 	} else if (lastArrayLength > nextArrayLength) {
 		for (i = commonLength; i < lastArrayLength; i++) {
@@ -450,8 +460,16 @@ function patchVTextNode(lastVTextNode: VTextNode, nextVTextNode: VTextNode) {
 }
 
 // TODO this function should throw if it can't find the key on an item
-function patchKeyedArray(lastArray: Array<Input>, nextArray: Array<Input>, parentDomNode: HTMLElement | SVGAElement | DocumentFragment, lifecycle: Lifecycle, instance: Object, namespace: string) {
-	
+function patchKeyedArray(
+	lastArray: Array<Input>, 
+	nextArray: Array<Input>, 
+	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
+	lifecycle: Lifecycle, 
+	instance: Object, 
+	namespace: string,
+	context: Context
+) {
+	// TODO
 }
 
 function patchAttribute(name, lastValue, nextValue, domNode, namespace) {

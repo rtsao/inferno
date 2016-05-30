@@ -79,6 +79,7 @@ export interface Blueprint {
 
 // shortcut for now, we really want it to be Object<any>
 export type Props = any;
+export type Context = any;
 
 export interface Hooks {
 	created: Function,
