@@ -173,7 +173,7 @@
                 patchVEmptyNode(lastInput, nextInput);
             }
             else {
-                if (isTrue(isRoot)) {
+                if (lifecycle.domNode === parentDomNode) {
                     unmount(lastInput, parentDomNode, lifecycle, instance, isRoot, false);
                     lifecycle.deleteRoot();
                 }
@@ -183,7 +183,7 @@
             }
         }
         else if (isVEmptyNode(lastInput)) {
-            if (isTrue(isRoot)) {
+            if (lifecycle.domNode === parentDomNode) {
                 mount(nextInput, parentDomNode, lifecycle, instance, namespace, false, context);
             }
             else {
@@ -193,7 +193,7 @@
         else if (isArray(lastInput)) {
             if (isArray(nextInput)) {
                 if (isKeyed) {
-                    patchKeyedArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, context);
+                    patchKeyedArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, context, isRoot);
                 }
                 else {
                     patchNonKeyedArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isRoot, context);
@@ -266,10 +266,10 @@
                 if (isTrue(nextIsStateful)) {
                     var instance = lastVComponent._instance;
                     var lastInput = instance._lastInput;
-                    var update = instance.componentShouldUpdate();
+                    var nextState = Object.assign({}, instance.state);
+                    var update = instance.shouldComponentUpdate(nextProps, nextState);
                     if (update) {
                         var lastState = instance.state;
-                        var nextState = Object.assign({}, instance.state);
                         var nextInput = instance._patchComponent(lastInput, parentDomNode, lastState, nextState, lastProps, nextProps, lifecycle, lastInstance, namespace, isKeyed, isRoot, context);
                         instance._lastInput = nextInput;
                         nextVComponent._instance = instance;
@@ -322,7 +322,7 @@
             unmountVComponent(lastVComponent, parentDomNode, lifecycle, lastInstance, true, true);
         }
     }
-    function patchObjects(lastObject, nextObject, setFunc, patchFunc, domNode, namespace) {
+    function patchObjects(lastObject, nextObject, setFunc, patchFunc, domNode) {
         if (isNull(nextObject)) {
             var keys = Object.keys(lastObject);
             for (var i = 0; i < keys.length; i++) {
@@ -344,16 +344,16 @@
                 for (var i$2 = 0; i$2 < lastKeys.length; i$2++) {
                     var name$2 = lastKeys[i$2];
                     if (!isUndef(nextObject[name$2])) {
-                        patchFunc(name$2, lastObject[name$2], nextObject[name$2], domNode, namespace);
+                        patchFunc(name$2, lastObject[name$2], nextObject[name$2], domNode);
                     }
                     else {
-                        setFunc(name$2, null, domNode, namespace);
+                        setFunc(name$2, null, domNode);
                     }
                 }
                 for (var i$3 = 0; i$3 < nextKeys.length; i$3++) {
                     var name$3 = nextKeys[i$3];
                     if (isUndef(lastObject[name$3])) {
-                        setFunc(name$3, nextObject[name$3], domNode, namespace);
+                        setFunc(name$3, nextObject[name$3], domNode);
                     }
                 }
             }
@@ -373,6 +373,7 @@
         else {
             var lastText = lastVElement._text;
             var nextText = nextVElement._text;
+            namespace = getNamespace(namespace, nextTag);
             if (!isNull(nextHooks) && nextHooks.willUpdate) {
                 triggerHook('willUpdate', nextHooks.willUpdate, domNode, lifecycle, null, null);
             }
@@ -392,25 +393,27 @@
                         mount(nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, context);
                     }
                     else {
-                        nextChildren = nextVElement._children = normaliseInput(nextChildren);
-                        patch(lastChildren, nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, false, context);
+                        if (isFalse(isKeyed)) {
+                            nextChildren = nextVElement._children = normaliseInput(nextChildren);
+                        }
+                        patch(lastChildren, nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, true, context);
                     }
                 }
             }
             var lastProps = lastVElement._props;
             var nextProps = nextVElement._props;
             if (lastProps !== nextProps) {
-                patchObjects(lastProps, nextProps, setProperty, patchProperty, domNode, namespace);
+                patchObjects(lastProps, nextProps, setProperty, patchProperty, domNode);
             }
             var lastAttrs = lastVElement._attrs;
             var nextAttrs = nextVElement._attrs;
             if (lastAttrs !== nextAttrs) {
-                patchObjects(lastAttrs, nextAttrs, setAttribute, patchAttribute, domNode, namespace);
+                patchObjects(lastAttrs, nextAttrs, setAttribute, patchAttribute, domNode);
             }
             var lastEvents = lastVElement._events;
             var nextEvents = nextVElement._events;
             if (lastEvents !== nextEvents) {
-                patchObjects(lastEvents, nextEvents, setEvent, patchEvent, domNode, namespace);
+                patchObjects(lastEvents, nextEvents, setEvent, patchEvent, domNode);
             }
             var lastRef = lastVElement._ref;
             var nextRef = nextVElement._ref;
@@ -488,7 +491,7 @@
         }
         else if (lastArrayLength > nextArrayLength) {
             for (i = commonLength; i < lastArrayLength; i++) {
-                unmount(lastArray[i], parentDomNode, lifecycle, instance, true, false);
+                unmount(lastArray[i], parentDomNode, lifecycle, instance, isRoot, false);
             }
         }
     }
@@ -501,12 +504,222 @@
         }
     }
     // TODO this function should throw if it can't find the key on an item
-    function patchKeyedArray(lastArray, nextArray, parentDomNode, lifecycle, instance, namespace, context) {
-        // TODO
+    function patchKeyedArray(lastArray, nextArray, parentDomNode, lifecycle, instance, namespace, context, isRoot) {
+        var lastArrayLength = lastArray.length;
+        var nextArrayLength = nextArray.length;
+        var i;
+        var lastEndIndex = lastArrayLength - 1;
+        var nextEndIndex = nextArrayLength - 1;
+        var lastStartIndex = 0;
+        var nextStartIndex = 0;
+        var lastStartNode = null;
+        var nextStartNode = null;
+        var nextEndNode = null;
+        var lastEndNode = null;
+        var index;
+        var nextNode;
+        var lastTarget = 0;
+        var pos;
+        var prevItem;
+        while (lastStartIndex <= lastEndIndex && nextStartIndex <= nextEndIndex) {
+            nextStartNode = nextArray[nextStartIndex];
+            lastStartNode = lastArray[lastStartIndex];
+            if (nextStartNode._key !== lastStartNode._key) {
+                break;
+            }
+            patch(lastStartNode, nextStartNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, context);
+            nextStartIndex++;
+            lastStartIndex++;
+        }
+        while (lastStartIndex <= lastEndIndex && nextStartIndex <= nextEndIndex) {
+            nextEndNode = nextArray[nextEndIndex];
+            lastEndNode = lastArray[lastEndIndex];
+            if (nextEndNode._key !== lastEndNode._key) {
+                break;
+            }
+            patch(lastEndNode, nextEndNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, context);
+            nextEndIndex--;
+            lastEndIndex--;
+        }
+        while (lastStartIndex <= lastEndIndex && nextStartIndex <= nextEndIndex) {
+            nextEndNode = nextArray[nextEndIndex];
+            lastStartNode = lastArray[lastStartIndex];
+            if (nextEndNode._key !== lastStartNode._key) {
+                break;
+            }
+            nextNode = (nextEndIndex + 1 < nextArrayLength) ? nextArray[nextEndIndex + 1]._dom : null;
+            patch(lastStartNode, nextEndNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, context);
+            appendOrInsertChild(parentDomNode, nextEndNode._dom, nextNode);
+            nextEndIndex--;
+            lastStartIndex++;
+        }
+        while (lastStartIndex <= lastEndIndex && nextStartIndex <= nextEndIndex) {
+            nextStartNode = nextArray[nextStartIndex];
+            lastEndNode = lastArray[lastEndIndex];
+            if (nextStartNode._key !== lastEndNode._key) {
+                break;
+            }
+            nextNode = lastArray[lastStartIndex]._dom;
+            patch(lastEndNode, nextStartNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, context);
+            appendOrInsertChild(parentDomNode, nextStartNode._dom, nextNode);
+            nextStartIndex++;
+            lastEndIndex--;
+        }
+        if (lastStartIndex > lastEndIndex) {
+            if (nextStartIndex <= nextEndIndex) {
+                nextNode = (nextEndIndex + 1 < nextArrayLength) ? nextArray[nextEndIndex + 1]._dom : null;
+                for (; nextStartIndex <= nextEndIndex; nextStartIndex++) {
+                    appendOrInsertChild(parentDomNode, mount(nextArray[nextStartIndex], null, lifecycle, instance, namespace, true, context), nextNode);
+                }
+            }
+        }
+        else if (nextStartIndex > nextEndIndex) {
+            while (lastStartIndex <= lastEndIndex) {
+                unmount(lastArray[lastStartIndex++], parentDomNode, lifecycle, instance, isRoot, false);
+            }
+        }
+        else {
+            var aLength = lastEndIndex - lastStartIndex + 1;
+            var bLength = nextEndIndex - nextStartIndex + 1;
+            var sources = new Array(bLength);
+            // Mark all nodes as inserted.
+            for (i = 0; i < bLength; i++) {
+                sources[i] = -1;
+            }
+            var moved = false;
+            var removeOffset = 0;
+            if (aLength * bLength <= 16) {
+                for (i = lastStartIndex; i <= lastEndIndex; i++) {
+                    var removed = true;
+                    lastEndNode = lastArray[i];
+                    for (index = nextStartIndex; index <= nextEndIndex; index++) {
+                        nextEndNode = nextArray[index];
+                        if (lastEndNode._key === nextEndNode._key) {
+                            sources[index - nextStartIndex] = i;
+                            if (lastTarget > index) {
+                                moved = true;
+                            }
+                            else {
+                                lastTarget = index;
+                            }
+                            patch(lastEndNode, nextEndNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, context);
+                            removed = false;
+                            break;
+                        }
+                    }
+                    if (removed) {
+                        unmount(lastEndNode, parentDomNode, lifecycle, instance, isRoot, false);
+                        removeOffset++;
+                    }
+                }
+            }
+            else {
+                var prevItemsMap = new Map();
+                for (i = nextStartIndex; i <= nextEndIndex; i++) {
+                    prevItem = nextArray[i];
+                    prevItemsMap.set(prevItem._key, i);
+                }
+                for (i = lastEndIndex; i >= lastStartIndex; i--) {
+                    lastEndNode = lastArray[i];
+                    index = prevItemsMap.get(lastEndNode._key);
+                    if (index === undefined) {
+                        unmount(lastEndNode, parentDomNode, lifecycle, instance, isRoot, false);
+                        removeOffset++;
+                    }
+                    else {
+                        nextEndNode = nextArray[index];
+                        sources[index - nextStartIndex] = i;
+                        if (lastTarget > index) {
+                            moved = true;
+                        }
+                        else {
+                            lastTarget = index;
+                        }
+                        patch(lastEndNode, nextEndNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, context);
+                    }
+                }
+            }
+            if (moved) {
+                var seq = lisAlgorithm(sources);
+                index = seq.length - 1;
+                for (i = bLength - 1; i >= 0; i--) {
+                    if (sources[i] === -1) {
+                        pos = i + nextStartIndex;
+                        nextNode = (pos + 1 < nextArrayLength) ? nextArray[pos + 1]._dom : null;
+                        appendOrInsertChild(parentDomNode, mount(nextArray[pos], null, lifecycle, instance, namespace, true, context), nextNode);
+                    }
+                    else {
+                        if (index < 0 || i !== seq[index]) {
+                            pos = i + nextStartIndex;
+                            nextNode = (pos + 1 < nextArrayLength) ? nextArray[pos + 1]._dom : null;
+                            appendOrInsertChild(parentDomNode, nextArray[pos]._dom, nextNode);
+                        }
+                        else {
+                            index--;
+                        }
+                    }
+                }
+            }
+            else if (aLength - removeOffset !== bLength) {
+                for (i = bLength - 1; i >= 0; i--) {
+                    if (sources[i] === -1) {
+                        pos = i + nextStartIndex;
+                        nextNode = (pos + 1 < nextArrayLength) ? nextArray[pos + 1]._dom : null;
+                        appendOrInsertChild(parentDomNode, mount(nextArray[pos], null, lifecycle, instance, namespace, true, context), nextNode);
+                    }
+                }
+            }
+        }
     }
-    function patchAttribute(name, lastValue, nextValue, domNode, namespace) {
+    // https://en.wikipedia.org/wiki/Longest_increasing_subsequence
+    function lisAlgorithm(a) {
+        var p = a.slice(0);
+        var result = [];
+        result.push(0);
+        var i;
+        var j;
+        var u;
+        var v;
+        var c;
+        for (i = 0; i < a.length; i++) {
+            if (a[i] === -1) {
+                continue;
+            }
+            j = result[result.length - 1];
+            if (a[j] < a[i]) {
+                p[i] = j;
+                result.push(i);
+                continue;
+            }
+            u = 0;
+            v = result.length - 1;
+            while (u < v) {
+                c = ((u + v) / 2) | 0;
+                if (a[result[c]] < a[i]) {
+                    u = c + 1;
+                }
+                else {
+                    v = c;
+                }
+            }
+            if (a[i] < a[result[u]]) {
+                if (u > 0) {
+                    p[i] = result[u - 1];
+                }
+                result[u] = i;
+            }
+        }
+        u = result.length;
+        v = result[u - 1];
+        while (u-- > 0) {
+            result[u] = v;
+            v = p[v];
+        }
+        return result;
+    }
+    function patchAttribute(name, lastValue, nextValue, domNode) {
         if (lastValue !== nextValue) {
-            setAttribute(name, nextValue, domNode, namespace);
+            setAttribute(name, nextValue, domNode);
         }
     }
     function patchEvent(name, lastValue, nextValue, domNode, namespace) {
@@ -569,6 +782,7 @@
         }
     }
 
+    var SVGNamespace = 'http://www.w3.org/2000/svg';
     var normalisedArrays = new Map();
     function isVTextNode(obj) {
         return !isUndef(obj._t);
@@ -631,7 +845,23 @@
             return document.createElement(tag);
         }
     }
-    function setAttribute(name, value, domNode, namespace) {
+    function getNamespace(namespace, tag) {
+        if (!namespace && tag === 'svg') {
+            return SVGNamespace;
+        }
+        return namespace;
+    }
+    function getAttrNamespace(name) {
+        if (name.substring(0, 6) === 'xlink:') {
+            return 'http://www.w3.org/1999/xlink';
+        }
+        else if (name.substring(0, 4) === 'xml:') {
+            return 'http://www.w3.org/XML/1998/namespace';
+        }
+        return null;
+    }
+    function setAttribute(name, value, domNode) {
+        var namespace = getAttrNamespace(name);
         if (!isInvalid(value)) {
             if (namespace) {
                 domNode.setAttributeNS(namespace, name, value);
@@ -788,6 +1018,15 @@
         }
         replaceChild(parentDomNode, mount(input, null, lifecycle, instance, namespace, isKeyed, context), domNode);
     }
+    // TODO: for node we need to check if document is valid
+    function getActiveNode() {
+        return document.activeElement;
+    }
+    function resetActiveNode(activeNode) {
+        if (activeNode !== null && activeNode !== document.body && document.activeElement !== activeNode) {
+            activeNode.focus(); // TODO: verify are we doing new focus event, if user has focus listener this might trigger it
+        }
+    }
 
     function mount(input, parentDomNode, lifecycle, instance, namespace, isKeyed, context) {
         if (isVEmptyNode(input)) {
@@ -896,6 +1135,7 @@
         var tag = vElement._tag;
         var domNode;
         if (isString(tag)) {
+            namespace = getNamespace(namespace, tag);
             var domNode$1 = createElement(tag, namespace);
             var text = vElement._text;
             var hooks = vElement._hooks;
@@ -910,21 +1150,23 @@
                     });
                 }
             }
-            if (text) {
+            if (!isNull(text)) {
                 setTextContent(text, domNode$1, false);
             }
-            var children = vElement._children;
-            var isKeyed = vElement._isKeyed;
-            if (!isNull(children)) {
-                if (isArray(children)) {
-                    if (!isKeyed) {
-                        children = vElement._children = normaliseArray(children, false);
+            else {
+                var children = vElement._children;
+                var isKeyed = vElement._isKeyed;
+                if (!isNull(children)) {
+                    if (isArray(children)) {
+                        if (isFalse(isKeyed)) {
+                            children = vElement._children = normaliseArray(children, false);
+                        }
+                        mountArray(children, domNode$1, lifecycle, instance, namespace, isKeyed, context);
                     }
-                    mountArray(children, domNode$1, lifecycle, instance, namespace, isKeyed, context);
-                }
-                else {
-                    children = vElement._children = normaliseInput(children);
-                    mount(children, domNode$1, lifecycle, instance, namespace, isKeyed, context);
+                    else {
+                        children = vElement._children = normaliseInput(children);
+                        mount(children, domNode$1, lifecycle, instance, namespace, isKeyed, context);
+                    }
                 }
             }
             var events = vElement._events;
@@ -942,7 +1184,7 @@
                 for (var i$1 = 0; i$1 < attrsKeys.length; i$1++) {
                     var attrName = attrsKeys[i$1];
                     var attrValue = attrs[attrName];
-                    setAttribute(attrName, attrValue, domNode$1, namespace);
+                    setAttribute(attrName, attrValue, domNode$1);
                 }
             }
             var props = vElement._props;
@@ -1039,8 +1281,10 @@
             root = new Root(domNode, input);
         }
         else {
+            var activeNode = getActiveNode();
             patch(root.input, input, domNode, lifecycle, null, null, false, true, {});
             root.input = input;
+            resetActiveNode(activeNode);
         }
         lifecycle.trigger();
     }

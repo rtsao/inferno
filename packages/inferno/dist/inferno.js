@@ -44,6 +44,26 @@
         this._attrs = attrs;
         return this;
     };
+    VElement.prototype.hooks = function hooks(hooks) {
+        this._hooks = hooks;
+        return this;
+    };
+    VElement.prototype.text = function text(text) {
+        this._text = text;
+        return this;
+    };
+    VElement.prototype.events = function events(events) {
+        this._events = events;
+        return this;
+    };
+    VElement.prototype.key = function key(key) {
+        this._key = key;
+        return this;
+    };
+    VElement.prototype.keyed = function keyed(keyed) {
+        this._isKeyed = keyed;
+        return this;
+    };
 
     var VComponent = function VComponent(component) {
         this._dom = null;

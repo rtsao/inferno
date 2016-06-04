@@ -424,8 +424,7 @@ function patchNonKeyedArray(
 ) {
 	// optimisaiton technique, can we delay doing this upon finding an invalid child and then falling back?
 	// it is expensive to do if we somehow know both arrays are the same length, even once flattened
-	lastArray = normaliseArray(lastArray, false);
-	nextArray = normaliseArray(nextArray, true);
+	normaliseArray(nextArray, true);
 	let lastArrayLength: number = lastArray.length;
 	let nextArrayLength: number = nextArray.length;
 	let commonLength: number = lastArrayLength > nextArrayLength ? nextArrayLength : lastArrayLength;
@@ -489,7 +488,7 @@ function patchKeyedArray(
 		if (nextStartNode._key !== lastStartNode._key) {
 			break;
 		}
-		patch(lastStartNode, nextStartNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, null);
+		patch(lastStartNode, nextStartNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, context);
 		nextStartIndex++;
 		lastStartIndex++;
 	}	
@@ -499,7 +498,7 @@ function patchKeyedArray(
 		if (nextEndNode._key !== lastEndNode._key) {
 			break;
 		}
-		patch(lastEndNode, nextEndNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, null);
+		patch(lastEndNode, nextEndNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, context);
 		nextEndIndex--;
 		lastEndIndex--;
 	}	
@@ -510,7 +509,7 @@ function patchKeyedArray(
 			break;
 		}
 		nextNode = (nextEndIndex + 1 < nextArrayLength) ? (nextArray[nextEndIndex + 1] as VNode)._dom : null;
-		patch(lastStartNode, nextEndNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, null);
+		patch(lastStartNode, nextEndNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, context);
 		appendOrInsertChild(parentDomNode, nextEndNode._dom, nextNode);
 		nextEndIndex--;
 		lastStartIndex++;
@@ -522,7 +521,7 @@ function patchKeyedArray(
 			break;
 		}
 		nextNode = (lastArray[lastStartIndex] as VNode)._dom;
-		patch(lastEndNode, nextStartNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, null);
+		patch(lastEndNode, nextStartNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, context);
 		appendOrInsertChild(parentDomNode, nextStartNode._dom, nextNode);
 		nextStartIndex++;
 		lastEndIndex--;
@@ -537,10 +536,149 @@ function patchKeyedArray(
 		}
 	} else if (nextStartIndex > nextEndIndex) {
 		while (lastStartIndex <= lastEndIndex) {
-			unmount(lastArray[lastStartIndex++], parentDomNode, lifecycle, instance, true, false);
+			unmount(lastArray[lastStartIndex++], parentDomNode, lifecycle, instance, isRoot, false);
+		}
+	} else {
+		let aLength = lastEndIndex - lastStartIndex + 1;
+		let bLength = nextEndIndex - nextStartIndex + 1;
+		const sources = new Array(bLength);
+
+		// Mark all nodes as inserted.
+		for (i = 0; i < bLength; i++) {
+			sources[i] = -1;
+		}
+		let moved = false;
+		let removeOffset = 0;
+
+		if (aLength * bLength <= 16) {
+			for (i = lastStartIndex; i <= lastEndIndex; i++) {
+				let removed = true;
+
+				lastEndNode = lastArray[i];
+				for (index = nextStartIndex; index <= nextEndIndex; index++) {
+					nextEndNode = nextArray[index];
+					if (lastEndNode._key === nextEndNode._key) {
+						sources[index - nextStartIndex] = i;
+						if (lastTarget > index) {
+							moved = true;
+						} else {
+							lastTarget = index;
+						}
+						patch(lastEndNode, nextEndNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, context);
+						removed = false;
+						break;
+					}
+				}
+				if (removed) {
+					unmount(lastEndNode, parentDomNode, lifecycle, instance, isRoot, false);
+					removeOffset++;
+				}
+			}
+		} else {
+			const prevItemsMap = new Map();
+
+			for (i = nextStartIndex; i <= nextEndIndex; i++) {
+				prevItem = nextArray[i];
+				prevItemsMap.set(prevItem._key, i);
+			}
+			for (i = lastEndIndex; i >= lastStartIndex; i--) {
+				lastEndNode = lastArray[i];
+				index = prevItemsMap.get(lastEndNode._key);
+
+				if (index === undefined) {
+					unmount(lastEndNode, parentDomNode, lifecycle, instance, isRoot, false);
+					removeOffset++;
+				} else {
+					nextEndNode = nextArray[index];
+
+					sources[index - nextStartIndex] = i;
+					if (lastTarget > index) {
+						moved = true;
+					} else {
+						lastTarget = index;
+					}
+					patch(lastEndNode, nextEndNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, context);
+				}
+			}
+		}
+		if (moved) {
+			const seq = lisAlgorithm(sources);
+
+			index = seq.length - 1;
+			for (i = bLength - 1; i >= 0; i--) {
+				if (sources[i] === -1) {
+					pos = i + nextStartIndex;
+					nextNode = (pos + 1 < nextArrayLength) ? (nextArray[pos + 1] as VNode)._dom : null;
+					appendOrInsertChild(parentDomNode, mount(nextArray[pos], null, lifecycle, instance, namespace, true, context), nextNode);
+				} else {
+					if (index < 0 || i !== seq[index]) {
+						pos = i + nextStartIndex;
+						nextNode = (pos + 1 < nextArrayLength) ? (nextArray[pos + 1]  as VNode)._dom : null;
+						appendOrInsertChild(parentDomNode, (nextArray[pos]  as VNode)._dom, nextNode);
+					} else {
+						index--;
+					}
+				}
+			}
+		} else if (aLength - removeOffset !== bLength) {
+			for (i = bLength - 1; i >= 0; i--) {
+				if (sources[i] === -1) {
+					pos = i + nextStartIndex;
+					nextNode = (pos + 1 < nextArrayLength) ? (nextArray[pos + 1] as VNode)._dom : null;
+					appendOrInsertChild(parentDomNode, mount(nextArray[pos], null, lifecycle, instance, namespace, true, context), nextNode);
+				}
+			}
 		}
 	}
 }
+
+// https://en.wikipedia.org/wiki/Longest_increasing_subsequence
+	function lisAlgorithm(a) {
+		let p = a.slice(0);
+		let result = [];
+
+		result.push(0);
+		let i;
+		let j;
+		let u;
+		let v;
+		let c;
+
+		for (i = 0; i < a.length; i++) {
+			if (a[i] === -1) {
+				continue;
+			}
+			j = result[result.length - 1];
+			if (a[j] < a[i]) {
+				p[i] = j;
+				result.push(i);
+				continue;
+			}
+			u = 0;
+			v = result.length - 1;
+			while (u < v) {
+				c = ((u + v) / 2) | 0;
+				if (a[result[c]] < a[i]) {
+					u = c + 1;
+				} else {
+					v = c;
+				}
+			}
+			if (a[i] < a[result[u]]) {
+				if (u > 0) {
+					p[i] = result[u - 1];
+				}
+				result[u] = i;
+			}
+		}
+		u = result.length;
+		v = result[u - 1];
+		while (u-- > 0) {
+			result[u] = v;
+			v = p[v];
+		}
+		return result;
+	}
 
 function patchAttribute(name, lastValue, nextValue, domNode) {
 	if (lastValue !== nextValue) {

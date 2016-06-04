@@ -202,7 +202,7 @@ export function mountVElement(
 			if (!isNull(children)) {
 				if (isArray(children)) {
 					if (isFalse(isKeyed)) {
-						children = vElement._children = normaliseArray(children as Array<Input>, false);
+						normaliseArray(children as Array<Input>, true);
 					}
 					mountArray(children as Array<Input>, domNode, lifecycle, instance, namespace, isKeyed, context);
 				} else {

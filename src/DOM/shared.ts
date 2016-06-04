@@ -179,22 +179,23 @@ function deepNormaliseArray(oldArr: Array<any>, newArr: Array<any>) {
 }
 
 export function normaliseArray(array: Array<any>, mutate: boolean): Array<Input> {
-	if (isUndef(normalisedArrays.get(array))) {
-		if (mutate) {
-			const copy: Array<any> = array.slice(0);
-
-			normalisedArrays.set(array, true);
-			array.length = 0;
-			deepNormaliseArray(copy, array);
-		} else {
-			const newArray: Array<any> = [];
-
-			normalisedArrays.set(array, true);
-			deepNormaliseArray(array, newArray);
-			return newArray;
-		}
+	if (!isUndef(normalisedArrays.get(array)) && mutate) {
+		return array;
 	}
-	return array;
+	if (mutate) {
+		const copy: Array<any> = array.slice(0);
+
+		normalisedArrays.set(array, true);
+		array.length = 0;
+		deepNormaliseArray(copy, array);
+		return array;
+	} else {
+		const newArray: Array<any> = [];
+
+		normalisedArrays.set(array, true);
+		deepNormaliseArray(array, newArray);
+		return newArray;
+	}
 }
 
 export function normaliseInput(input: Input): Input {
