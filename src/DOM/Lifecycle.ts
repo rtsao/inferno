@@ -3,9 +3,9 @@ import { roots } from './rendering';
 
 export default class Lifecyle {
 	private callbacks: Array<Function>;
-	private domNode: HTMLElement;
+	public domNode: HTMLElement | SVGAElement | DocumentFragment;
 	
-	constructor(domNode: HTMLElement) {
+	constructor(domNode: HTMLElement | SVGAElement | DocumentFragment) {
 		this.domNode = domNode;
 		this.callbacks = [];
 	}

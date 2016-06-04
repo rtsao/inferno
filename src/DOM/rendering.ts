@@ -2,14 +2,14 @@ import { mount } from './mounting';
 import { patch } from './patching';
 import Lifecycle from './Lifecycle';
 import { isUndef, Input, isStringOrNumber, isVNode, isPromise, isVEmptyNode, isTrue, Root as RootType } from '../shared';
-import { normaliseInput } from './shared';
+import { normaliseInput, getActiveNode, resetActiveNode } from './shared';
 import VTextNode from './VTextNode';
 import VAsyncNode from '../core/VAsyncNode';
 
 // We need to know the DOM node to get a root VTemplate, VTextNode, VComponent or VElement,
 // we can retrive them faster than using arrays with O(n) lookup
 // The key is the DOM node.
-export const roots: Map<HTMLElement, Root> = new Map();
+export const roots: Map<HTMLElement | SVGAElement | DocumentFragment, Root> = new Map();
 
 class Root implements RootType {
 	public input: Input;
@@ -29,8 +29,10 @@ export function render(input: Input, domNode: HTMLElement) {
 		mount(input, domNode, lifecycle, null, null, false, {});
 		root = new Root(domNode, input);
 	} else {
+		const activeNode = getActiveNode();
 		patch(root.input, input, domNode, lifecycle, null, null, false, true, {});
 		root.input = input;
+		resetActiveNode(activeNode);
 	}
 	lifecycle.trigger();
 }

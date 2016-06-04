@@ -1,86 +1,81 @@
-// import { render } from './../rendering';
+import { render } from '../../DOM/rendering';
+import { element, component } from '../../core/index';
+import createElement from '../../createElement/index';
 
-// function generateKeyNodes(array) {
+declare var describe;
+declare var it;
+declare var beforeEach;
+declare var afterEach;
+declare var expect;
+declare var global;
 
-//     let i, id, key;
-//     let children = [];
-//     let newKey;
+function generateKeyNodes(array) {
+	let i, id, key;
+	let children = [];
+	let newKey;
 
-//     for (i = 0; i < array.length; i++) {
-//         id = key = array[i];
-//         if (key !== null && (typeof key !== 'string' || key[0] !== '#')) {
-//             newKey = key;
-//         }
+	for (i = 0; i < array.length; i++) {
+		id = key = array[i];
+		if (key !== null && (typeof key !== 'string' || key[0] !== '#')) {
+			newKey = key;
+		}
+		children.push(element('div').key(key).attrs({ id: String(id) }).children(id).keyed(true));
+	}
+	return children;
+}
 
-//         const template = function (k) {
-//             return {
-//                 tag: 'div',
-//                 key: k,
-//                 attrs: {id: String(id)},
-//                 children: id
-//             };
-//         };
+describe('keyed-nodes', () => {
+	let container;
 
-//         children.push(template(newKey));
-//     }
-//     return children;
-// }
+	let template = function(child) {
+		return element('div').children(child).keyed(true);
+	};
 
-// describe('keyed-nodes', () => {
-//     let container;
+	beforeEach(() => {
+		container = document.createElement('div');
+	});
 
-//     let template = function(child) {
-//         return {
-//             tag: 'div',
-//             children: child
-//         };
-//     };
+	afterEach(() => {
+		container.innerHTML = '';
+	});
 
-//     beforeEach(() => {
-//         container = document.createElement('div');
-//     });
-
-//     afterEach(() => {
-//         container.innerHTML = '';
-//     });
-
-//     it('should add all nodes', () => {
-//         render(template(generateKeyNodes([])), container);
-//         render(template(generateKeyNodes(['#0', '#1', '#2', '#3'])), container);
-//         expect(container.textContent).to.equal('#0#1#2#3');
-//         expect(container.firstChild.childNodes.length).to.equal(4);
-//     });
-//     it('should remove two keys at the beginning', () => {
-//         render(template(generateKeyNodes(['a', 'b', 'c'])), container);
-//         render(template(generateKeyNodes(['c'])), container);
-//         expect(container.textContent).to.equal('c');
-//         expect(container.firstChild.childNodes.length).to.equal(1);
-//     });
-//     it('should size up', () => {
-//         render(template(generateKeyNodes(['#0', '#1'])), container);
-//         render(template(generateKeyNodes(['#0', '#1', '#2', '#3'])), container);
-//         expect(container.textContent).to.equal('#0#1#2#3');
-//         expect(container.firstChild.childNodes.length).to.equal(4);
-//     });
-//     it('should size down', () => {
-//         render(template(generateKeyNodes(['#0', '#1', '#2', '#3'])), container);
-//         render(template(generateKeyNodes(['#0', '#1'])), container);
-//         expect(container.textContent).to.equal('#0#1');
-//         expect(container.firstChild.childNodes.length).to.equal(2);
-// 	    render(template(generateKeyNodes(['#0', '#1', '#2', '#3'])), container);
-// 	    render(template(generateKeyNodes(['#0', '#1'])), container);
-// 	    expect(container.textContent).to.equal('#0#1');
-// 	    expect(container.firstChild.childNodes.length).to.equal(2);
-//     });
-
-//     it('should clear all nodes', () => {
-//         render(template(generateKeyNodes(['#0', '#1', '#2', '#3'])), container);
-//         render(template(generateKeyNodes([])), container);
-//         expect(container.textContent).to.equal('');
-//         expect(container.firstChild.childNodes.length).to.equal(0);
-// 	    render(template(generateKeyNodes(['#0', '#1', '#2', '#3'])), container);
-// 	    render(template(generateKeyNodes([])), container);
-//     });
+	it('should add all nodes', () => {
+		render(template(generateKeyNodes([])), container);
+		render(template(generateKeyNodes(['#0', '#1', '#2', '#3'])), container);
+		expect(container.textContent).to.equal('#0#1#2#3');
+		expect(container.firstChild.childNodes.length).to.equal(4);
+	});
+	it('should remove two keys at the beginning', () => {
+		render(template(generateKeyNodes(['a', 'b', 'c'])), container);
+		expect(container.textContent).to.equal('abc');
+		render(template(generateKeyNodes(['c'])), container);
+		expect(container.textContent).to.equal('c');
+		expect(container.firstChild.childNodes.length).to.equal(1);
+	});
+	it('should size up', () => {
+		render(template(generateKeyNodes(['#0', '#1'])), container);
+		render(template(generateKeyNodes(['#0', '#1', '#2', '#3'])), container);
+		expect(container.textContent).to.equal('#0#1#2#3');
+		expect(container.firstChild.childNodes.length).to.equal(4);
+	});
+	it('should size down', () => {
+		render(template(generateKeyNodes(['#0', '#1', '#2', '#3'])), container);
+		render(template(generateKeyNodes(['#0', '#1'])), container);
+		expect(container.textContent).to.equal('#0#1');
+		expect(container.firstChild.childNodes.length).to.equal(2);
+		render(template(generateKeyNodes(['#0', '#1', '#2', '#3'])), container);
+		render(template(generateKeyNodes(['#0', '#1'])), container);
+		expect(container.textContent).to.equal('#0#1');
+		expect(container.firstChild.childNodes.length).to.equal(2);
+	});
+	it('should clear all nodes', () => {
+		render(template(generateKeyNodes(['#0', '#1', '#2', '#3'])), container);
+		render(template(generateKeyNodes([])), container);
+		expect(container.textContent).to.equal('');
+		expect(container.firstChild.childNodes.length).to.equal(0);
+		render(template(generateKeyNodes(['#0', '#1', '#2', '#3'])), container);
+		render(template(generateKeyNodes([])), container);
+	});
 
 //     it('should work with mixed nodes', () => {
 //         render(template(generateKeyNodes(['1', '#0', '#1', '#2'])), container);
@@ -399,4 +394,4 @@
 // 	    expect(container.textContent).to.equal('abcd');
 // 	    expect(container.firstChild.childNodes.length).to.equal(4);
 //     });
-// });
+});

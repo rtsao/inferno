@@ -28,4 +28,24 @@ export default class VElement implements VElementType {
 		this._attrs = attrs;
 		return this;
 	}
+	hooks(hooks: Hooks): VElement {
+		this._hooks = hooks;
+		return this;
+	}
+	text(text: string | number): VElement {
+		this._text = text;
+		return this;
+	}
+	events(events: Object): VElement {
+		this._events = events;
+		return this;
+	}
+	key(key: string | number): VElement {
+		this._key = key;
+		return this;
+	}
+	keyed(keyed: boolean): VElement {
+		this._isKeyed = keyed;
+		return this;
+	}
 }

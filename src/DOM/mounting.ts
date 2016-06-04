@@ -36,7 +36,8 @@ import {
 	setAttribute,
 	setProperty,
 	setEvent,
-	triggerHook
+	triggerHook,
+	getNamespace
 } from './shared';
 import { patch } from './patching';
 import Lifecycle from './Lifecycle';
@@ -176,6 +177,7 @@ export function mountVElement(
 	let domNode;
 
 	if (isString(tag)) {
+		namespace = getNamespace(namespace, tag);
 		const domNode: HTMLElement | SVGAElement = createElement(tag, namespace);
 		const text: string | number = vElement._text;
 		const hooks: Hooks = vElement._hooks;
@@ -191,20 +193,22 @@ export function mountVElement(
 				});
 			}
 		}
-		if (text) {
+		if (!isNull(text)) {
 			setTextContent(text as string, domNode, false);
-		}
-		let children: Array<any> | Input = vElement._children;
-		const isKeyed = vElement._isKeyed;
+		} else {
+			let children: Array<any> | Input = vElement._children;
+			const isKeyed = vElement._isKeyed;
 		
-		if (!isNull(children)) {
-			if (isArray(children)) {
-				if (!isKeyed) {
-					children = vElement._children = normaliseArray(children as Array<Input>, false);
+			if (!isNull(children)) {
+				if (isArray(children)) {
+					if (isFalse(isKeyed)) {
+						children = vElement._children = normaliseArray(children as Array<Input>, false);
+					}
+					mountArray(children as Array<Input>, domNode, lifecycle, instance, namespace, isKeyed, context);
+				} else {
+					children = vElement._children = normaliseInput(children);
+					mount(children, domNode, lifecycle, instance, namespace, isKeyed, context);
 				}
-				mountArray(children as Array<Input>, domNode, lifecycle, instance, namespace, isKeyed, context);
-			} else {
-				mount(children, domNode, lifecycle, instance, namespace, isKeyed, context);
 			}
 		}
 		const events: Object = vElement._events;
@@ -228,7 +232,7 @@ export function mountVElement(
 				const attrName: string = attrsKeys[i];
 				const attrValue: string | number = attrs[attrName];
 
-				setAttribute(attrName, attrValue, domNode, namespace);
+				setAttribute(attrName, attrValue, domNode);
 			}
 		}		
 		const props: Object = vElement._props;

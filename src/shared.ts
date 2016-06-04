@@ -2,22 +2,28 @@ export type VNode = VElement | VTextNode | VComponent | VTemplate | VAsyncNode |
 export type Input = string | number | VNode | Promise<any> | Array<string | number | VNode | Promise<any> | Array<any>>;
 
 export interface StatefulComponent {
-	refs: Object,
+	refs: Refs,
 	_lastInput: Input,
 	componentWillMount: Function,
 	componentDidMount: Function,
 	componentWillUnmount: Function,
 	componentWillUpdate: Function,
 	componentDidUpdate: Function,
-	componentShouldUpdate: Function,
+	shouldComponentUpdate: Function,
 	getChildContext: Function,
+	forceUpdate: Function,
+	setState: Function,
 	render: Function,
 	props: Props,
-	state: Object,
+	state: State,
+	context: Context,
+	_deferSetState: boolean,
 	_blockSetState: boolean
 	_patch: Function,
 	_unmounted: boolean,
-	_pendingSetState: boolean
+	_pendingState: State,
+	_pendingSetState: boolean,
+	_patchComponent: Function
 }
 
 export interface VElement {
@@ -86,20 +92,23 @@ export interface Blueprint {
 // shortcut for now, we really want it to be Object<any>
 export type Props = any;
 export type Context = any;
+export type Refs = any;
+export type State = any;
+export type PendingState = any;
 
 export interface Hooks {
-	created: Function,
-	attached: Function,
-	willDetach: Function,
-	detached: Function,
-	willUpdate: Function,
-	didUpdate: Function,
-	componentWillMount: Function,
-	componentDidMount: Function,
-	componentWillUnmount: Function,
-	componentShouldUpdate: Function,
-	componentWillUpdate: Function,
-	componentDidUpdate: Function
+	created?: Function,
+	attached?: Function,
+	willDetach?: Function,
+	detached?: Function,
+	willUpdate?: Function,
+	didUpdate?: Function,
+	componentWillMount?: Function,
+	componentDidMount?: Function,
+	componentWillUnmount?: Function,
+	componentShouldUpdate?: Function,
+	componentWillUpdate?: Function,
+	componentDidUpdate?: Function
 }
 
 export interface Root {

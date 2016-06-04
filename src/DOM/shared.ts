@@ -24,6 +24,8 @@ import { mount, mountVComponent, mountVElement, mountVEmptyNode } from './mounti
 import { patch, patchInputWithPromiseInput, patchStyle } from './patching';
 import Lifecycle from './Lifecycle';
 
+export const SVGNamespace = 'http://www.w3.org/2000/svg';
+
 const normalisedArrays: Map<Array<any>, boolean> = new Map();
 
 export function isVTextNode(obj: any): obj is VTextNodeType {
@@ -60,7 +62,7 @@ export function removeChild(
 	parentDomNode.removeChild(childDomNode);
 }
 
-function appendOrInsertChild(
+export function appendOrInsertChild(
 	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
 	newDomNode: HTMLElement | SVGAElement | DocumentFragment | Text, 
 	nextDomNode: HTMLElement | SVGAElement | DocumentFragment | Text
@@ -108,12 +110,30 @@ export function createElement(tag, namespace): HTMLElement | SVGAElement {
 	}
 }
 
-export function setAttribute(name: string, value: string | number, domNode: HTMLElement | SVGAElement, namespace: string) {
+export function getNamespace(namespace, tag) {
+	if (!namespace && tag === 'svg') {
+		return SVGNamespace;
+	}
+	return namespace;
+}
+
+function getAttrNamespace(name: string): string {
+	if (name.substring(0, 6) === 'xlink:') {
+		return 'http://www.w3.org/1999/xlink';
+	} else if (name.substring(0, 4) === 'xml:') {
+		return 'http://www.w3.org/XML/1998/namespace';
+	}
+	return null;
+}
+
+export function setAttribute(name: string, value: string | number, domNode: HTMLElement | SVGAElement) {
+	const namespace = getAttrNamespace(name);
+
 	if (!isInvalid(value)) {
-		if (namespace) {
+		if (namespace) { 
 			domNode.setAttributeNS(namespace, name, value as string);
 		} else {
-			domNode.setAttribute(name, value as string);
+			domNode.setAttribute(name, value as string);	
 		}
 	} else {
 		domNode.removeAttribute(name);
@@ -350,4 +370,15 @@ export function replaceVAsyncNodeWithInput(
 		input = normaliseInput(input);
 	}
 	replaceChild(parentDomNode, mount(input, null, lifecycle, instance, namespace, isKeyed, context), domNode);
+}
+
+// TODO: for node we need to check if document is valid
+export function getActiveNode() {
+	return document.activeElement;
+}
+
+export function resetActiveNode(activeNode) {
+	if (activeNode !== null && activeNode !== document.body && document.activeElement !== activeNode) {
+		activeNode.focus(); // TODO: verify are we doing new focus event, if user has focus listener this might trigger it
+	}
 }

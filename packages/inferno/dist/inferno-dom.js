@@ -30,6 +30,9 @@
     function isUndef(obj) {
         return obj === undefined;
     }
+    function isNullOrUndef(obj) {
+        return isUndef(obj) || isNull(obj);
+    }
     function isNull(obj) {
         return obj === null;
     }
@@ -164,7 +167,7 @@
 
     var badInput = 'Inferno Error: bad input(s) passed to "patch". Please ensure only valid objects are used in your render.';
     var invalidInput = 'Inferno Error: components cannot have an Array as a root input. Use String, Number, VElement, VComponent, VTemplate, Null or False instead.';
-    function patch(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot) {
+    function patch(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context) {
         if (isVEmptyNode(nextInput)) {
             if (isVEmptyNode(lastInput)) {
                 patchVEmptyNode(lastInput, nextInput);
@@ -175,43 +178,40 @@
                     lifecycle.deleteRoot();
                 }
                 else {
-                    mountVEmptyNode(nextInput, null);
-                    // replaceInputWithPlaceholder(lastInput, parentDomNode, lifecycle);	
-                    debugger;
+                    replaceInputWithEmptyNode(lastInput, nextInput, parentDomNode, lifecycle, instance);
                 }
             }
         }
         else if (isVEmptyNode(lastInput)) {
             if (isTrue(isRoot)) {
-                mount(nextInput, parentDomNode, lifecycle, instance, namespace, false);
+                mount(nextInput, parentDomNode, lifecycle, instance, namespace, false, context);
             }
             else {
-                // replacePlaceholderWithInput(nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed);	
-                debugger;
+                replaceEmptyNodeWithInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, context);
             }
         }
         else if (isArray(lastInput)) {
             if (isArray(nextInput)) {
                 if (isKeyed) {
-                    patchKeyedArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace);
+                    patchKeyedArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, context);
                 }
                 else {
-                    patchNonKeyedArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isRoot);
+                    patchNonKeyedArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isRoot, context);
                 }
             }
             else {
-                replaceArrayWithInput(parentDomNode, mount(nextInput, null, lifecycle, instance, namespace, isKeyed), lastInput, lifecycle, instance);
+                replaceArrayWithInput(parentDomNode, mount(nextInput, null, lifecycle, instance, namespace, isKeyed, context), lastInput, lifecycle, instance);
             }
         }
         else if (isArray(nextInput)) {
-            replaceInputWithArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed);
+            replaceInputWithArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, context);
         }
         else if (isVAsyncNode(nextInput)) {
             if (isVAsyncNode(lastInput)) {
-                patchVAsyncNode(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
+                patchVAsyncNode(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);
             }
             else {
-                patchInputWithPromiseInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
+                patchInputWithPromiseInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);
             }
         }
         else if (isVTemplate(nextInput)) {
@@ -219,27 +219,27 @@
         }
         else if (isVElement(nextInput)) {
             if (isVElement(lastInput)) {
-                patchVElement(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
+                patchVElement(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);
             }
             else {
-                replaceInputWithVElement(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
+                replaceInputWithVElement(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);
             }
         }
         else if (isVComponent(nextInput)) {
             if (isVComponent(lastInput)) {
-                patchVComponent(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
+                patchVComponent(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);
             }
             else {
-                replaceInputWithVComponent(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
+                replaceInputWithVComponent(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);
             }
         }
         else if (isVAsyncNode(lastInput)) {
             var asyncLastInput = lastInput._lastInput;
             if (isNull(asyncLastInput)) {
-                replaceVAsyncNodeWithInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed);
+                replaceVAsyncNodeWithInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, context);
             }
             else {
-                patch(asyncLastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
+                patch(asyncLastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);
             }
         }
         else if (isVTextNode(lastInput)) {
@@ -247,14 +247,14 @@
                 patchVTextNode(lastInput, nextInput);
             }
             else {
-                replaceVTextNodeWithInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed);
+                replaceVTextNodeWithInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, context);
             }
         }
         else {
             throw new Error(badInput);
         }
     }
-    function patchVComponent(lastVComponent, nextVComponent, parentDomNode, lifecycle, lastInstance, namespace, isKeyed, isRoot) {
+    function patchVComponent(lastVComponent, nextVComponent, parentDomNode, lifecycle, lastInstance, namespace, isKeyed, isRoot, context) {
         var lastComponent = lastVComponent._component;
         var nextComponent = nextVComponent._component;
         var lastIsStateful = lastVComponent._isStateful;
@@ -270,17 +270,7 @@
                     if (update) {
                         var lastState = instance.state;
                         var nextState = Object.assign({}, instance.state);
-                        instance._blockSetState = true;
-                        instance.componentWillUpdate(nextProps, nextState);
-                        instance._blockSetState = false;
-                        instance.props = nextProps;
-                        instance.state = nextState;
-                        var nextInput = normaliseInput(instance.render());
-                        if (isArray(nextInput)) {
-                            throw new Error(invalidInput);
-                        }
-                        patch(lastInput, nextInput, parentDomNode, lifecycle, lastInstance, namespace, isKeyed, isRoot);
-                        instance.componentDidUpdate(lastProps, lastState);
+                        var nextInput = instance._patchComponent(lastInput, parentDomNode, lastState, nextState, lastProps, nextProps, lifecycle, lastInstance, namespace, isKeyed, isRoot, context);
                         instance._lastInput = nextInput;
                         nextVComponent._instance = instance;
                         nextVComponent._dom = nextInput._dom;
@@ -312,7 +302,7 @@
                         if (hasHooks && hooks.componentWillUpdate) {
                             triggerHook('componentWillUpdate', hooks.componentWillUpdate, lastVComponent._dom, lifecycle, null, null);
                         }
-                        patch(lastInput$1, nextInput$1, parentDomNode, lifecycle, null, namespace, false, false);
+                        patch(lastInput$1, nextInput$1, parentDomNode, lifecycle, null, namespace, false, false, context);
                         nextVComponent._dom = nextInput$1._dom;
                         nextVComponent._instance = nextInput$1;
                         if (hasHooks && hooks.componentDidUpdate) {
@@ -327,7 +317,7 @@
             }
         }
         else {
-            var domNode = mountVComponent(nextVComponent, parentDomNode, lifecycle, lastInstance, namespace, isKeyed);
+            var domNode = mountVComponent(nextVComponent, parentDomNode, lifecycle, lastInstance, namespace, isKeyed, context);
             replaceChild(parentDomNode, domNode, lastVComponent._dom);
             unmountVComponent(lastVComponent, parentDomNode, lifecycle, lastInstance, true, true);
         }
@@ -369,7 +359,7 @@
             }
         }
     }
-    function patchVElement(lastVElement, nextVElement, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot) {
+    function patchVElement(lastVElement, nextVElement, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context) {
         var lastTag = lastVElement._tag;
         var nextTag = nextVElement._tag;
         var nextHooks = nextVElement._hooks;
@@ -378,7 +368,7 @@
         nextVElement._dom = domNode;
         if (lastTag !== nextTag) {
             unmount(lastVElement, null, lifecycle, instance, isRoot, true);
-            replaceChild(parentDomNode, mount(nextVElement, null, lifecycle, instance, namespace, _isKeyed), domNode);
+            replaceChild(parentDomNode, mount(nextVElement, null, lifecycle, instance, namespace, _isKeyed, context), domNode);
         }
         else {
             var lastText = lastVElement._text;
@@ -398,9 +388,13 @@
                 var lastChildren = lastVElement._children;
                 var nextChildren = nextVElement._children;
                 if (lastChildren !== nextChildren) {
-                    lastChildren = normaliseInput(lastChildren);
-                    nextChildren = normaliseInput(nextChildren);
-                    patch(lastChildren, nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, false);
+                    if (isNull(lastChildren)) {
+                        mount(nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, context);
+                    }
+                    else {
+                        nextChildren = nextVElement._children = normaliseInput(nextChildren);
+                        patch(lastChildren, nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, false, context);
+                    }
                 }
             }
             var lastProps = lastVElement._props;
@@ -441,7 +435,7 @@
     function patchVEmptyNode(lastVEmptyNode, nextVEmptyNode) {
         nextVEmptyNode._dom = lastVEmptyNode._dom;
     }
-    function patchVAsyncNode(lastVAsyncNode, nextVAsyncNode, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot) {
+    function patchVAsyncNode(lastVAsyncNode, nextVAsyncNode, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context) {
         var lastInput = lastVAsyncNode._lastInput;
         var nextAsync = nextVAsyncNode._async;
         if (isNull(lastInput)) {
@@ -450,7 +444,7 @@
                 nextAsync.then(function ( nextInput ) {
                     if (isFalse(nextVAsyncNode._cancel)) {
                         nextInput = normaliseInput(nextInput);
-                        var domNode = mount(nextInput, null, lifecycle, instance, namespace, isKeyed);
+                        var domNode = mount(nextInput, null, lifecycle, instance, namespace, isKeyed, context);
                         replaceChild(parentDomNode, domNode, lastVAsyncNode._dom);
                         nextVAsyncNode._dom = domNode;
                         nextVAsyncNode._lastInput = nextInput;
@@ -460,22 +454,22 @@
         }
         else {
             if (isPromise(nextAsync)) {
-                patchInputWithPromiseInput(lastInput, nextVAsyncNode, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
+                patchInputWithPromiseInput(lastInput, nextVAsyncNode, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);
             }
         }
     }
-    function patchInputWithPromiseInput(lastInput, vAsyncNode, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot) {
+    function patchInputWithPromiseInput(lastInput, vAsyncNode, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context) {
         var promise = vAsyncNode._async;
         promise.then(function ( nextInput ) {
             if (isFalse(vAsyncNode._cancel)) {
                 nextInput = normaliseInput(nextInput);
-                patch(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot);
+                patch(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context);
                 vAsyncNode._dom = getDomNodeFromInput(nextInput, parentDomNode);
                 vAsyncNode._lastInput = nextInput;
             }
         });
     }
-    function patchNonKeyedArray(lastArray, nextArray, parentDomNode, lifecycle, instance, namespace, isRoot) {
+    function patchNonKeyedArray(lastArray, nextArray, parentDomNode, lifecycle, instance, namespace, isRoot, context) {
         // optimisaiton technique, can we delay doing this upon finding an invalid child and then falling back?
         // it is expensive to do if we somehow know both arrays are the same length, even once flattened
         lastArray = normaliseArray(lastArray, false);
@@ -485,11 +479,11 @@
         var commonLength = lastArrayLength > nextArrayLength ? nextArrayLength : lastArrayLength;
         var i = 0;
         for (; i < commonLength; i++) {
-            patch(lastArray[i], nextArray[i], parentDomNode, lifecycle, instance, namespace, false, isRoot);
+            patch(lastArray[i], nextArray[i], parentDomNode, lifecycle, instance, namespace, false, isRoot, context);
         }
         if (lastArrayLength < nextArrayLength) {
             for (i = commonLength; i < nextArrayLength; i++) {
-                mount(nextArray[i], parentDomNode, lifecycle, instance, namespace, false);
+                mount(nextArray[i], parentDomNode, lifecycle, instance, namespace, false, context);
             }
         }
         else if (lastArrayLength > nextArrayLength) {
@@ -507,7 +501,8 @@
         }
     }
     // TODO this function should throw if it can't find the key on an item
-    function patchKeyedArray(lastArray, nextArray, parentDomNode, lifecycle, instance, namespace) {
+    function patchKeyedArray(lastArray, nextArray, parentDomNode, lifecycle, instance, namespace, context) {
+        // TODO
     }
     function patchAttribute(name, lastValue, nextValue, domNode, namespace) {
         if (lastValue !== nextValue) {
@@ -522,7 +517,12 @@
     function patchProperty(name, lastValue, nextValue, domNode) {
         if (lastValue !== nextValue) {
             if (name === 'className') {
-                domNode.className = nextValue;
+                if (isNull(nextValue)) {
+                    domNode.removeAttribute('class');
+                }
+                else {
+                    domNode.className = nextValue;
+                }
             }
             else if (name === 'style') {
                 patchStyle(lastValue, nextValue, domNode);
@@ -536,8 +536,8 @@
         if (isString(nextValue)) {
             domNode.style.cssText = nextValue;
         }
-        else if (isUndef(lastValue)) {
-            if (!isUndef(nextValue)) {
+        else if (isNullOrUndef(lastValue)) {
+            if (!isNullOrUndef(nextValue)) {
                 var styleKeys = Object.keys(nextValue);
                 for (var i = 0; i < styleKeys.length; i++) {
                     var style = styleKeys[i];
@@ -545,7 +545,7 @@
                 }
             }
         }
-        else if (isUndef(nextValue)) {
+        else if (isNullOrUndef(nextValue)) {
             domNode.removeAttribute('style');
         }
         else {
@@ -554,12 +554,17 @@
                 var style$1 = styleKeys$1[i$1];
                 domNode.style[style$1] = nextValue[style$1];
             }
-            var lastStyleKeys = Object.keys(lastValue);
-            for (var i$2 = 0; i$2 < lastStyleKeys.length; i$2++) {
-                var style$2 = lastStyleKeys[i$2];
-                if (isUndef(nextValue[style$2])) {
-                    domNode.style[style$2] = '';
+            if (!isNullOrUndef(lastValue)) {
+                var lastStyleKeys = Object.keys(lastValue);
+                for (var i$2 = 0; i$2 < lastStyleKeys.length; i$2++) {
+                    var style$2 = lastStyleKeys[i$2];
+                    if (isUndef(nextValue[style$2])) {
+                        domNode.style[style$2] = '';
+                    }
                 }
+            }
+            else {
+                debugger;
             }
         }
     }
@@ -738,22 +743,32 @@
                 return func(domNode, lastProps, nextProps);
         }
     }
-    function replaceInputWithVElement(input, vElement, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot) {
-        var domNode = mountVElement(vElement, null, lifecycle, instance, namespace);
+    function replaceInputWithVElement(input, vElement, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context) {
+        var domNode = mountVElement(vElement, null, lifecycle, instance, namespace, context);
         replaceChild(parentDomNode, domNode, getDomNodeFromInput(input, null));
         unmount(input, parentDomNode, lifecycle, instance, isRoot, true);
     }
-    function replaceInputWithVComponent(input, vComponent, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot) {
-        var domNode = mountVComponent(vComponent, null, lifecycle, instance, namespace, isKeyed);
+    function replaceInputWithVComponent(input, vComponent, parentDomNode, lifecycle, instance, namespace, isKeyed, isRoot, context) {
+        var domNode = mountVComponent(vComponent, null, lifecycle, instance, namespace, isKeyed, context);
         replaceChild(parentDomNode, domNode, getDomNodeFromInput(input, null));
         unmount(input, parentDomNode, lifecycle, instance, isRoot, true);
     }
-    function replaceVTextNodeWithInput(vTextNode, input, parentDomNode, lifecycle, instance, namespace, isKeyed) {
+    function replaceEmptyNodeWithInput(vEmptyNode, input, parentDomNode, lifecycle, instance, namespace, isKeyed, context) {
+        var emptyDomNode = vEmptyNode._dom;
+        if (!isInvalid(input) && !isVNode(input)) {
+            input = normaliseInput(input);
+        }
+        replaceChild(parentDomNode, mount(input, null, lifecycle, instance, namespace, isKeyed, context), emptyDomNode);
+    }
+    function replaceInputWithEmptyNode(input, vEmptyNode, parentDomNode, lifecycle, instance) {
+        replaceChild(parentDomNode, mountVEmptyNode(vEmptyNode, null), getDomNodeFromInput(input, null));
+    }
+    function replaceVTextNodeWithInput(vTextNode, input, parentDomNode, lifecycle, instance, namespace, isKeyed, context) {
         var domTextNode = vTextNode._dom;
         if (!isInvalid(input) && !isVNode(input)) {
             input = normaliseInput(input);
         }
-        replaceChild(parentDomNode, mount(input, null, lifecycle, instance, namespace, isKeyed), domTextNode);
+        replaceChild(parentDomNode, mount(input, null, lifecycle, instance, namespace, isKeyed, context), domTextNode);
     }
     function replaceArrayWithInput(parentDomNode, newDomNode, oldArray, lifecycle, instance) {
         // we need to insert out new object before the first item of the array, then unmount the array
@@ -762,19 +777,19 @@
         appendOrInsertChild(parentDomNode, newDomNode, getDomNodeFromInput(firstItem, null));
         unmount(oldArray, parentDomNode, lifecycle, instance, true, false);
     }
-    function replaceInputWithArray(input, array, parentDomNode, lifecycle, instance, namespace, isKeyed) {
-        replaceChild(parentDomNode, mount(array, null, lifecycle, instance, namespace, isKeyed), getDomNodeFromInput(input, null));
+    function replaceInputWithArray(input, array, parentDomNode, lifecycle, instance, namespace, isKeyed, context) {
+        replaceChild(parentDomNode, mount(array, null, lifecycle, instance, namespace, isKeyed, context), getDomNodeFromInput(input, null));
     }
-    function replaceVAsyncNodeWithInput(vAsyncNode, input, parentDomNode, lifecycle, instance, namespace, isKeyed) {
+    function replaceVAsyncNodeWithInput(vAsyncNode, input, parentDomNode, lifecycle, instance, namespace, isKeyed, context) {
         var domNode = vAsyncNode._dom;
         vAsyncNode._cancel = true;
         if (!isInvalid(input) && !isVNode(input)) {
             input = normaliseInput(input);
         }
-        replaceChild(parentDomNode, mount(input, null, lifecycle, instance, namespace, isKeyed), domNode);
+        replaceChild(parentDomNode, mount(input, null, lifecycle, instance, namespace, isKeyed, context), domNode);
     }
 
-    function mount(input, parentDomNode, lifecycle, instance, namespace, isKeyed) {
+    function mount(input, parentDomNode, lifecycle, instance, namespace, isKeyed, context) {
         if (isVEmptyNode(input)) {
             return mountVEmptyNode(input, parentDomNode);
         }
@@ -782,16 +797,16 @@
             return mountVTextNode(input, parentDomNode);
         }
         else if (isVComponent(input)) {
-            return mountVComponent(input, parentDomNode, lifecycle, instance, namespace, isKeyed);
+            return mountVComponent(input, parentDomNode, lifecycle, instance, namespace, isKeyed, context);
         }
         else if (isVElement(input)) {
-            return mountVElement(input, parentDomNode, lifecycle, instance, namespace);
+            return mountVElement(input, parentDomNode, lifecycle, instance, namespace, context);
         }
         else if (isVTemplate$1(input)) {
-            return mountVTemplate(input, parentDomNode, lifecycle, instance);
+            return mountVTemplate(input, parentDomNode, lifecycle, instance, context);
         }
         else if (isVAsyncNode(input)) {
-            return mountVAsyncNode(input, parentDomNode, lifecycle, instance, namespace, isKeyed);
+            return mountVAsyncNode(input, parentDomNode, lifecycle, instance, namespace, isKeyed, context);
         }
         else if (isArray(input)) {
             var domNode = parentDomNode;
@@ -799,10 +814,10 @@
                 domNode = document.createDocumentFragment();
             }
             if (isFalse(isKeyed)) {
-                mountArray(normaliseArray(input, true), domNode, lifecycle, instance, namespace, false);
+                mountArray(normaliseArray(input, true), domNode, lifecycle, instance, namespace, false, context);
             }
             else {
-                mountArray(input, domNode, lifecycle, instance, namespace, true);
+                mountArray(input, domNode, lifecycle, instance, namespace, true, context);
             }
             return domNode;
         }
@@ -829,7 +844,7 @@
         }
         return domTextNode;
     }
-    function mountVComponent(vComponent, parentDomNode, lifecycle, lastInstance, namespace, isKeyed) {
+    function mountVComponent(vComponent, parentDomNode, lifecycle, lastInstance, namespace, isKeyed, context) {
         var isStateful = vComponent._isStateful;
         var component = vComponent._component; // we need to use "any" as InfernoComponent is externally available only
         var props = vComponent._props;
@@ -842,14 +857,16 @@
             if (!isNull(lastInstance) && ref$1) {
                 mountRef(lastInstance, ref$1, instance);
             }
-            // TODO add context to Inferno, it's missing for now
             var childContext = instance.getChildContext();
+            if (!isNull(childContext)) {
+                context = Object.assign({}, context, childContext);
+            }
             instance._unmounted = false;
             instance._pendingSetState = true;
             instance.componentWillMount();
             var input = normaliseInput(instance.render());
             instance._pendingSetState = false;
-            domNode = mount(input, parentDomNode, lifecycle, instance, namespace, isKeyed);
+            domNode = mount(input, parentDomNode, lifecycle, instance, namespace, isKeyed, context);
             instance._lastInput = input;
             instance.componentDidMount();
             vComponent._dom = domNode;
@@ -861,7 +878,7 @@
             if (isArray(input$1)) {
                 throw new Error('Inferno Error: components cannot have an Array as a root input. Use String, Number, VElement, VComponent, VTemplate, Null or False instead.');
             }
-            domNode = mount(input$1, parentDomNode, lifecycle, null, namespace, isKeyed);
+            domNode = mount(input$1, parentDomNode, lifecycle, null, namespace, isKeyed, context);
             vComponent._dom = domNode;
             vComponent._instance = input$1;
             if (hooks) {
@@ -875,7 +892,7 @@
         }
         return domNode;
     }
-    function mountVElement(vElement, parentDomNode, lifecycle, instance, namespace) {
+    function mountVElement(vElement, parentDomNode, lifecycle, instance, namespace, context) {
         var tag = vElement._tag;
         var domNode;
         if (isString(tag)) {
@@ -903,10 +920,11 @@
                     if (!isKeyed) {
                         children = vElement._children = normaliseArray(children, false);
                     }
-                    mountArray(children, domNode$1, lifecycle, instance, namespace, isKeyed);
+                    mountArray(children, domNode$1, lifecycle, instance, namespace, isKeyed, context);
                 }
                 else {
-                    mount(children, domNode$1, lifecycle, instance, namespace, isKeyed);
+                    children = vElement._children = normaliseInput(children);
+                    mount(children, domNode$1, lifecycle, instance, namespace, isKeyed, context);
                 }
             }
             var events = vElement._events;
@@ -949,10 +967,10 @@
             throw new Error('Inferno Error: expected a String for VElement tag type');
         }
     }
-    function mountVTemplate(vComponent, parentDomNode, lifecycle, instance) {
+    function mountVTemplate(vComponent, parentDomNode, lifecycle, instance, context) {
         // TODO
     }
-    function mountVAsyncNode(vAsyncNode, parentDomNode, lifecycle, instance, namespace, isKeyed) {
+    function mountVAsyncNode(vAsyncNode, parentDomNode, lifecycle, instance, namespace, isKeyed, context) {
         var _async = vAsyncNode._async;
         var placeholder = createPlaceholder();
         vAsyncNode._dom = placeholder;
@@ -960,7 +978,7 @@
             _async.then(function ( input ) {
                 if (isFalse(vAsyncNode._cancel)) {
                     input = normaliseInput(input);
-                    var domNode = mount(input, null, lifecycle, instance, namespace, isKeyed);
+                    var domNode = mount(input, null, lifecycle, instance, namespace, isKeyed, context);
                     replaceChild(parentDomNode || placeholder.parentNode, domNode, placeholder);
                     vAsyncNode._dom = domNode;
                     vAsyncNode._lastInput = input;
@@ -972,10 +990,10 @@
         }
         return placeholder;
     }
-    function mountArray(array, domNode, lifecycle, instance, namespace, isKeyed) {
+    function mountArray(array, domNode, lifecycle, instance, namespace, isKeyed, context) {
         for (var i = 0; i < array.length; i++) {
             var arrayItem = array[i];
-            mount(arrayItem, domNode, lifecycle, instance, namespace, isKeyed);
+            mount(arrayItem, domNode, lifecycle, instance, namespace, isKeyed, context);
         }
     }
     function mountRef(instance, value, refValue) {
@@ -1017,11 +1035,11 @@
         var lifecycle = new Lifecyle(domNode);
         input = normaliseInput(input);
         if (isUndef(root)) {
-            mount(input, domNode, lifecycle, null, null, false);
+            mount(input, domNode, lifecycle, null, null, false, {});
             root = new Root(domNode, input);
         }
         else {
-            patch(root.input, input, domNode, lifecycle, null, null, false, true);
+            patch(root.input, input, domNode, lifecycle, null, null, false, true, {});
             root.input = input;
         }
         lifecycle.trigger();

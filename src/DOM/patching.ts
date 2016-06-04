@@ -1,7 +1,8 @@
 declare var process;
 
 import {  
-	isUndef, 
+	isUndef,
+	isNullOrUndef, 
 	Input, 
 	isInvalid, 
 	isNull, 
@@ -24,7 +25,8 @@ import {
 	isString,
 	StatefulComponent,
 	isVTemplate,
-	Context
+	Context,
+	VNode
 } from '../shared';
 import { 
 	replaceInputWithEmptyNode,
@@ -45,14 +47,16 @@ import {
 	setProperty,
 	setAttribute,
 	triggerHook,
-	setEvent
+	setEvent,
+	getNamespace,
+	appendOrInsertChild
 } from './shared';
 import Lifecycle from './Lifecycle';
 import { unmount, unmountVComponent } from './unmounting';
 import { mount, mountVEmptyNode, mountVComponent } from './mounting';
 
 const badInput = 'Inferno Error: bad input(s) passed to "patch". Please ensure only valid objects are used in your render.';
-const invalidInput = 'Inferno Error: components cannot have an Array as a root input. Use String, Number, VElement, VComponent, VTemplate, Null or False instead.';
+export const invalidInput = 'Inferno Error: components cannot have an Array as a root input. Use String, Number, VElement, VComponent, VTemplate, Null or False instead.';
 
 export function patch(
 	lastInput: Input, 
@@ -69,7 +73,7 @@ export function patch(
 		if (isVEmptyNode(lastInput)) {
 			patchVEmptyNode(lastInput, nextInput);	
 		} else {
-			if (isTrue(isRoot)) {
+			if (lifecycle.domNode === parentDomNode) {
 				unmount(lastInput, parentDomNode, lifecycle, instance, isRoot, false);
 				lifecycle.deleteRoot();
 			} else {
@@ -77,7 +81,7 @@ export function patch(
 			}
 		}
 	} else if (isVEmptyNode(lastInput)) {
-		if (isTrue(isRoot)) {
+		if (lifecycle.domNode === parentDomNode) {
 			mount(nextInput, parentDomNode, lifecycle, instance, namespace, false, context);
 		} else {
 			replaceEmptyNodeWithInput(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isKeyed, context);	
@@ -85,7 +89,7 @@ export function patch(
 	} else if (isArray(lastInput)) {
 		if (isArray(nextInput)) {
 			if (isKeyed) {
-				patchKeyedArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, context);
+				patchKeyedArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, context, isRoot);
 			} else {
 				patchNonKeyedArray(lastInput, nextInput, parentDomNode, lifecycle, instance, namespace, isRoot, context);
 			}
@@ -156,28 +160,13 @@ function patchVComponent(
 			if (isTrue(nextIsStateful)) {
 				const instance = lastVComponent._instance as StatefulComponent;
 				const lastInput = instance._lastInput;
-				const update = instance.componentShouldUpdate();
+				const nextState = Object.assign({}, instance.state);
+				const update = instance.shouldComponentUpdate(nextProps, nextState);
 				
 				if (update) {
 					const lastState = instance.state;
-					const nextState = Object.assign({}, instance.state);
-					const childContext = instance.getChildContext();
+					const nextInput = instance._patchComponent(lastInput, parentDomNode, lastState, nextState, lastProps, nextProps, lifecycle, lastInstance, namespace, isKeyed, isRoot, context);
 
-					if (!isNull(childContext)) {
-						context = Object.assign({}, context, childContext);
-					}
-					instance._blockSetState = true;
-					instance.componentWillUpdate(nextProps, nextState);
-					instance._blockSetState = false;
-					instance.props = nextProps;
-					instance.state = nextState;
-					const nextInput = normaliseInput(instance.render());
-
-					if (isArray(nextInput)) {
-						throw new Error(invalidInput);
-					}
-					patch(lastInput, nextInput, parentDomNode, lifecycle, lastInstance, namespace, isKeyed, isRoot, context);
-					instance.componentDidUpdate(lastProps, lastState);
 					instance._lastInput = nextInput;
 					nextVComponent._instance = instance;
 					nextVComponent._dom = (nextInput as VElement | VTemplate | VComponent)._dom;
@@ -227,7 +216,7 @@ function patchVComponent(
 	}
 }
 
-function patchObjects(lastObject: Object, nextObject: Object, setFunc: Function, patchFunc: Function, domNode: HTMLElement | SVGAElement | DocumentFragment, namespace: string) {
+function patchObjects(lastObject: Object, nextObject: Object, setFunc: Function, patchFunc: Function, domNode: HTMLElement | SVGAElement | DocumentFragment) {
 	if (isNull(nextObject)) {
 		const keys: Array<string> = Object.keys(lastObject);
 		
@@ -253,16 +242,16 @@ function patchObjects(lastObject: Object, nextObject: Object, setFunc: Function,
 				const name: string = lastKeys[i];
 				
 				if (!isUndef(nextObject[name])) {
-					patchFunc(name, lastObject[name], nextObject[name], domNode, namespace);
+					patchFunc(name, lastObject[name], nextObject[name], domNode);
 				} else {
-					setFunc(name, null, domNode, namespace);
+					setFunc(name, null, domNode);
 				}
 			}
 			for (let i = 0; i < nextKeys.length; i++) {
 				const name: string = nextKeys[i];
 				
 				if (isUndef(lastObject[name])) {
-					setFunc(name, nextObject[name], domNode, namespace);
+					setFunc(name, nextObject[name], domNode);
 				}
 			}
 		}
@@ -293,7 +282,8 @@ function patchVElement(
 	} else {
 		const lastText: string | number = lastVElement._text;
 		const nextText: string | number = nextVElement._text;
-		
+	
+		namespace = getNamespace(namespace, nextTag);
 		if (!isNull(nextHooks) && nextHooks.willUpdate) {
 			triggerHook('willUpdate', nextHooks.willUpdate, domNode, lifecycle, null, null);
 		}
@@ -311,8 +301,10 @@ function patchVElement(
 				if (isNull(lastChildren)) {
 					mount(nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, context);
 				} else {
-					nextChildren = nextVElement._children = normaliseInput(nextChildren);
-					patch(lastChildren, nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, false, context);
+					if (isFalse(isKeyed)) {
+						nextChildren = nextVElement._children = normaliseInput(nextChildren);
+					}
+					patch(lastChildren, nextChildren, domNode, lifecycle, instance, namespace, _isKeyed, true, context);
 				}
 			}
 		}
@@ -320,19 +312,19 @@ function patchVElement(
 		const nextProps: Object = nextVElement._props;
 		
 		if (lastProps !== nextProps) {
-			patchObjects(lastProps, nextProps, setProperty, patchProperty, domNode, namespace);
+			patchObjects(lastProps, nextProps, setProperty, patchProperty, domNode);
 		}
 		const lastAttrs: Object = lastVElement._attrs;
 		const nextAttrs: Object = nextVElement._attrs;
 		
 		if (lastAttrs !== nextAttrs) {
-			patchObjects(lastAttrs, nextAttrs, setAttribute, patchAttribute, domNode, namespace);
+			patchObjects(lastAttrs, nextAttrs, setAttribute, patchAttribute, domNode);
 		}
 		const lastEvents: Object = lastVElement._events;
 		const nextEvents: Object = nextVElement._events;
 		
 		if (lastEvents !== nextEvents) {
-			patchObjects(lastEvents, nextEvents, setEvent, patchEvent, domNode, namespace);
+			patchObjects(lastEvents, nextEvents, setEvent, patchEvent, domNode);
 		}		
 		const lastRef: string | Function = lastVElement._ref;
 		const nextRef: string | Function = nextVElement._ref;
@@ -448,7 +440,7 @@ function patchNonKeyedArray(
 		}
 	} else if (lastArrayLength > nextArrayLength) {
 		for (i = commonLength; i < lastArrayLength; i++) {
-			unmount(lastArray[i], parentDomNode, lifecycle, instance, true, false);
+			unmount(lastArray[i], parentDomNode, lifecycle, instance, isRoot, false);
 		}
 	}	
 }
@@ -469,16 +461,90 @@ function patchKeyedArray(
 	nextArray: Array<Input>, 
 	parentDomNode: HTMLElement | SVGAElement | DocumentFragment, 
 	lifecycle: Lifecycle, 
-	instance: Object, 
+	instance: StatefulComponent, 
 	namespace: string,
-	context: Context
+	context: Context,
+	isRoot: boolean
 ) {
-	// TODO
+	let lastArrayLength = lastArray.length;
+	let nextArrayLength = nextArray.length;
+	let i;
+	let lastEndIndex = lastArrayLength - 1;
+	let nextEndIndex = nextArrayLength - 1;
+	let lastStartIndex = 0;
+	let nextStartIndex = 0;
+	let lastStartNode = null;
+	let nextStartNode = null;
+	let nextEndNode = null;
+	let lastEndNode = null;
+	let index;
+	let nextNode;
+	let lastTarget = 0;
+	let pos;
+	let prevItem;
+	
+	while (lastStartIndex <= lastEndIndex && nextStartIndex <= nextEndIndex) {
+		nextStartNode = nextArray[nextStartIndex];
+		lastStartNode = lastArray[lastStartIndex];
+		if (nextStartNode._key !== lastStartNode._key) {
+			break;
+		}
+		patch(lastStartNode, nextStartNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, null);
+		nextStartIndex++;
+		lastStartIndex++;
+	}	
+	while (lastStartIndex <= lastEndIndex && nextStartIndex <= nextEndIndex) {
+		nextEndNode = nextArray[nextEndIndex];
+		lastEndNode = lastArray[lastEndIndex];
+		if (nextEndNode._key !== lastEndNode._key) {
+			break;
+		}
+		patch(lastEndNode, nextEndNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, null);
+		nextEndIndex--;
+		lastEndIndex--;
+	}	
+	while (lastStartIndex <= lastEndIndex && nextStartIndex <= nextEndIndex) {
+		nextEndNode = nextArray[nextEndIndex];
+		lastStartNode = lastArray[lastStartIndex];
+		if (nextEndNode._key !== lastStartNode._key) {
+			break;
+		}
+		nextNode = (nextEndIndex + 1 < nextArrayLength) ? (nextArray[nextEndIndex + 1] as VNode)._dom : null;
+		patch(lastStartNode, nextEndNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, null);
+		appendOrInsertChild(parentDomNode, nextEndNode._dom, nextNode);
+		nextEndIndex--;
+		lastStartIndex++;
+	}
+	while (lastStartIndex <= lastEndIndex && nextStartIndex <= nextEndIndex) {
+		nextStartNode = nextArray[nextStartIndex];
+		lastEndNode = lastArray[lastEndIndex];
+		if (nextStartNode._key !== lastEndNode._key) {
+			break;
+		}
+		nextNode = (lastArray[lastStartIndex] as VNode)._dom;
+		patch(lastEndNode, nextStartNode, parentDomNode, lifecycle, instance, namespace, true, isRoot, null);
+		appendOrInsertChild(parentDomNode, nextStartNode._dom, nextNode);
+		nextStartIndex++;
+		lastEndIndex--;
+	}	
+	
+	if (lastStartIndex > lastEndIndex) {
+		if (nextStartIndex <= nextEndIndex) {
+			nextNode = (nextEndIndex + 1 < nextArrayLength) ? (nextArray[nextEndIndex + 1] as VNode)._dom : null;
+			for (; nextStartIndex <= nextEndIndex; nextStartIndex++) {
+				appendOrInsertChild(parentDomNode, mount(nextArray[nextStartIndex], null, lifecycle, instance, namespace, true, context), nextNode);
+			}
+		}
+	} else if (nextStartIndex > nextEndIndex) {
+		while (lastStartIndex <= lastEndIndex) {
+			unmount(lastArray[lastStartIndex++], parentDomNode, lifecycle, instance, true, false);
+		}
+	}
 }
 
-function patchAttribute(name, lastValue, nextValue, domNode, namespace) {
+function patchAttribute(name, lastValue, nextValue, domNode) {
 	if (lastValue !== nextValue) {
-		setAttribute(name, nextValue, domNode, namespace);
+		setAttribute(name, nextValue, domNode);
 	}
 }
 
@@ -488,12 +554,16 @@ function patchEvent(name, lastValue, nextValue, domNode, namespace) {
 	}
 }
 
-function patchProperty(name, lastValue, nextValue, domNode) {
+function patchProperty(name, lastValue, nextValue, domNode: HTMLElement | SVGAElement | DocumentFragment) {
 	if (lastValue !== nextValue) {
 		if (name === 'className') {
-			domNode.className = nextValue;
+			if (isNull(nextValue)) {
+				(domNode as HTMLElement).removeAttribute('class')	
+			} else {
+				(domNode as HTMLElement).className = nextValue;
+			}
 		} else if (name === 'style') {
-			patchStyle(lastValue, nextValue, domNode)
+			patchStyle(lastValue, nextValue, domNode as HTMLElement)
 		} else {
 			domNode[name] = nextValue;
 		}
@@ -503,8 +573,8 @@ function patchProperty(name, lastValue, nextValue, domNode) {
 export function patchStyle(lastValue: string | number | boolean | Object, nextValue: string | number | boolean | Object, domNode: HTMLElement | SVGAElement) {
 	if (isString(nextValue)) {
 		domNode.style.cssText = nextValue;
-	} else if (isUndef(lastValue)) {
-		if (!isUndef(nextValue)) {
+	} else if (isNullOrUndef(lastValue)) {
+		if (!isNullOrUndef(nextValue)) {
 			const styleKeys = Object.keys(nextValue);
 
 			for (let i = 0; i < styleKeys.length; i++) {
@@ -513,7 +583,7 @@ export function patchStyle(lastValue: string | number | boolean | Object, nextVa
 				domNode.style[style] = nextValue[style];
 			}
 		}
-	} else if (isUndef(nextValue)) {
+	} else if (isNullOrUndef(nextValue)) {
 		domNode.removeAttribute('style');
 	} else {
 		const styleKeys = Object.keys(nextValue);
@@ -523,13 +593,17 @@ export function patchStyle(lastValue: string | number | boolean | Object, nextVa
 
 			domNode.style[style] = nextValue[style];
 		}
-		const lastStyleKeys = Object.keys(lastValue);
+		if (!isNullOrUndef(lastValue)) {
+			const lastStyleKeys = Object.keys(lastValue);
 
-		for (let i = 0; i < lastStyleKeys.length; i++) {
-			const style = lastStyleKeys[i];
-			if (isUndef(nextValue[style])) {
-				domNode.style[style] = '';
+			for (let i = 0; i < lastStyleKeys.length; i++) {
+				const style = lastStyleKeys[i];
+				if (isUndef(nextValue[style])) {
+					domNode.style[style] = '';
+				}
 			}
+		} else {
+			debugger;
 		}
 	}
 }

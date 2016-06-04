@@ -105,7 +105,6 @@
 // 			}
 
 
-
 // 			render(<A />, container);
 // 			expect(container.innerHTML).to.equal('<div><button>btn</button></div>');
 // 			expect(aCalled).to.equal(false);
@@ -204,7 +203,6 @@
 // 					)
 // 				}
 // 			}
-
 
 
 // 			render(<A />, container);
